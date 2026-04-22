@@ -1,0 +1,67 @@
+:root {
+  /* Albion-inspired forge palette */
+  --bg-deep: #0a0b0e;
+  --bg-elevated: #12141a;
+  --bg-panel: #161922;
+  --bg-input: #0e1016;
+  --border: #2a2e3d;
+  --border-gold: #5c4d24;
+  --gold: #d4af37;
+  --gold-dim: #9a7b2c;
+  --gold-glow: rgba(212, 175, 55, 0.12);
+  --text: #e8eaef;
+  --text-soft: #b4bac8;
+  --muted: #7a8294;
+  --silver-line: #c0c5d0;
+  --accent: #8b6914;
+  --accent-hover: #a67c1a;
+  --accent-text: #1a0f00;
+  --danger: #c45c5c;
+  --success: #6b9b7a;
+
+  --font-ui: 'Source Sans 3', system-ui, 'Segoe UI', sans-serif;
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background-color: var(--bg-deep);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(212, 175, 55, 0.08), transparent 55%),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(40, 50, 80, 0.35), transparent 45%),
+    var(--bg-deep);
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  text-align: left;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  color: var(--text);
+  font-weight: 600;
+}
