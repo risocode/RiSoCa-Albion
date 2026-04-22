@@ -276,6 +276,94 @@ const CATEGORIES = [
       )
     },
   },
+  {
+    key: 'cooking_stews',
+    file: 'cooking_stews_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'stews' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_soups',
+    file: 'cooking_soups_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'soups' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_salads',
+    file: 'cooking_salads_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'salads' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_sandwiches',
+    file: 'cooking_sandwiches_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'sandwiches' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_pies',
+    file: 'cooking_pies_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'pies' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_omelettes',
+    file: 'cooking_omelettes_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'omelettes' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_roasts',
+    file: 'cooking_roasts_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'roasts' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
+  {
+    key: 'cooking_grilledfish',
+    file: 'cooking_grilledfish_recipes.json',
+    test(o) {
+      return (
+        o['@shopsubcategory1'] === 'food' &&
+        o['@shopsubcategory2'] === 'grilledfish' &&
+        o['@shopcategory'] === 'consumables'
+      )
+    },
+  },
 ]
 
 function walk(obj, visit) {
@@ -290,7 +378,7 @@ function walk(obj, visit) {
   }
 }
 
-function normalizeCraftResources(crafting) {
+function normalizeCraftResources(crafting, enchantmentLevelOverride) {
   if (!crafting?.craftresource) return []
   const raw = crafting.craftresource
   const arr = Array.isArray(raw) ? raw : [raw]
@@ -299,7 +387,9 @@ function normalizeCraftResources(crafting) {
       uniqueName: r['@uniquename'],
       count: Number(r['@count'] ?? 0),
       enchantmentLevel:
-        r['@enchantmentlevel'] != null && r['@enchantmentlevel'] !== ''
+        enchantmentLevelOverride != null
+          ? Number(enchantmentLevelOverride)
+          : r['@enchantmentlevel'] != null && r['@enchantmentlevel'] !== ''
           ? Number(r['@enchantmentlevel'])
           : undefined,
     }))
@@ -344,6 +434,25 @@ function isCraftableBase(o) {
 function recipeFromItem(o) {
   const cr = pickPrimaryCraftingOption(o.craftingrequirements)
   if (!cr) return null
+  const baseResources = normalizeCraftResources(cr)
+  const baseKeySet = new Set(baseResources.map((r) => `${r.uniqueName}::${r.count}`))
+  const enchantmentsRaw = o.enchantments?.enchantment
+  const enchantments = Array.isArray(enchantmentsRaw)
+    ? enchantmentsRaw
+    : enchantmentsRaw
+      ? [enchantmentsRaw]
+      : []
+  const enchantExtras = enchantments.flatMap((ench) => {
+    const levelRaw = ench?.['@enchantmentlevel']
+    const level = Number(levelRaw)
+    if (!Number.isFinite(level) || level < 1) return []
+    const enchCraft = ench?.craftingrequirements
+    if (!enchCraft) return []
+    const enchResources = normalizeCraftResources(enchCraft, level)
+    return enchResources.filter((r) => !baseKeySet.has(`${r.uniqueName}::${r.count}`))
+  })
+  const includeEnchantExtras =
+    o['@shopcategory'] === 'consumables' || o['@slottype'] === 'food' || o['@slottype'] === 'potion'
   return {
     uniqueName: o['@uniquename'],
     tier: o['@tier'] != null ? Number(o['@tier']) : undefined,
@@ -358,7 +467,7 @@ function recipeFromItem(o) {
         : 0,
     craftTime:
       cr['@time'] != null && cr['@time'] !== '' ? Number(cr['@time']) : undefined,
-    resources: normalizeCraftResources(cr),
+    resources: includeEnchantExtras ? [...baseResources, ...enchantExtras] : baseResources,
   }
 }
 

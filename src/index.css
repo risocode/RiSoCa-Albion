@@ -39,13 +39,16 @@
 
 html {
   height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(ellipse 120% 80% at 50% -20%, rgba(212, 175, 55, 0.08), transparent 55%),
     radial-gradient(ellipse 80% 50% at 100% 100%, rgba(40, 50, 80, 0.35), transparent 45%),
@@ -53,9 +56,10 @@ body {
 }
 
 #root {
+  min-height: 100dvh;
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  overflow: visible;
   text-align: left;
 }
 

@@ -55,8 +55,17 @@ export type CraftPlannerKind =
   | 'brewing_gathering'
   | 'brewing_tornado'
   | 'brewing_focus'
+  | 'cooking_stews'
+  | 'cooking_soups'
+  | 'cooking_salads'
+  | 'cooking_sandwiches'
+  | 'cooking_pies'
+  | 'cooking_omelettes'
+  | 'cooking_roasts'
+  | 'cooking_grilledfish'
 
 export type WorkshopSection =
+  | 'player_lookup'
   | 'weapons'
   | 'head'
   | 'chest'
@@ -82,6 +91,14 @@ export type WorkshopSection =
   | 'brewing_gathering'
   | 'brewing_tornado'
   | 'brewing_focus'
+  | 'cooking_stews'
+  | 'cooking_soups'
+  | 'cooking_salads'
+  | 'cooking_sandwiches'
+  | 'cooking_pies'
+  | 'cooking_omelettes'
+  | 'cooking_roasts'
+  | 'cooking_grilledfish'
 
 export type AodpRegion = 'americas' | 'europe' | 'asia'
 

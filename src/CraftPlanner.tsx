@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fetchPricesForItems } from './aodp'
 import {
   formatItemDisplayName,
@@ -8,7 +8,7 @@ import {
 } from './formatItemName'
 import { ItemIcon } from './ItemIcon'
 import type { LocalIconFolder } from './itemIconUrl'
-import type { AodpRegion, CraftPlannerKind, RecipesPayload } from './types'
+import type { AodpRegion, CraftPlannerKind, CraftRecipe, RecipesPayload } from './types'
 
 const LS_PRICES = 'albion-weapon-craft:unitPrices'
 const LS_CRAFT_SETUP = 'albion-weapon-craft:setup'
@@ -47,6 +47,14 @@ const RECIPE_URL: Record<CraftPlannerKind, string> = {
   brewing_gathering: '/data/brewing_gathering_recipes.json',
   brewing_tornado: '/data/brewing_tornado_recipes.json',
   brewing_focus: '/data/brewing_focus_recipes.json',
+  cooking_stews: '/data/cooking_stews_recipes.json',
+  cooking_soups: '/data/cooking_soups_recipes.json',
+  cooking_salads: '/data/cooking_salads_recipes.json',
+  cooking_sandwiches: '/data/cooking_sandwiches_recipes.json',
+  cooking_pies: '/data/cooking_pies_recipes.json',
+  cooking_omelettes: '/data/cooking_omelettes_recipes.json',
+  cooking_roasts: '/data/cooking_roasts_recipes.json',
+  cooking_grilledfish: '/data/cooking_grilledfish_recipes.json',
 }
 
 const recipeCache: Partial<Record<CraftPlannerKind, RecipesPayload>> = {}
@@ -423,6 +431,110 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
     pickPrompt: 'Choose a focus potion to view alchemy resources and silver totals.',
     selectionLabel: 'Selected focus potion',
   },
+  cooking_stews: {
+    panelTitle: 'Cooking · Stews',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search stews…',
+    searchAria: 'Filter stews',
+    listAria: 'Stew list',
+    searchIcon: '🍲',
+    searchIconItemId: 'T8_MEAL_STEW',
+    emptyList: 'No stew recipe matches that search.',
+    pickPrompt: 'Choose a stew to view ingredients and silver totals.',
+    selectionLabel: 'Selected stew',
+  },
+  cooking_soups: {
+    panelTitle: 'Cooking · Soups',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search soups…',
+    searchAria: 'Filter soups',
+    listAria: 'Soup list',
+    searchIcon: '🥣',
+    searchIconItemId: 'T5_MEAL_SOUP',
+    emptyList: 'No soup recipe matches that search.',
+    pickPrompt: 'Choose a soup to view ingredients and silver totals.',
+    selectionLabel: 'Selected soup',
+  },
+  cooking_salads: {
+    panelTitle: 'Cooking · Salads',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search salads…',
+    searchAria: 'Filter salads',
+    listAria: 'Salad list',
+    searchIcon: '🥗',
+    searchIconItemId: 'T6_MEAL_SALAD',
+    emptyList: 'No salad recipe matches that search.',
+    pickPrompt: 'Choose a salad to view ingredients and silver totals.',
+    selectionLabel: 'Selected salad',
+  },
+  cooking_sandwiches: {
+    panelTitle: 'Cooking · Sandwiches',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search sandwiches…',
+    searchAria: 'Filter sandwiches',
+    listAria: 'Sandwich list',
+    searchIcon: '🥪',
+    searchIconItemId: 'T8_MEAL_SANDWICH',
+    emptyList: 'No sandwich recipe matches that search.',
+    pickPrompt: 'Choose a sandwich to view ingredients and silver totals.',
+    selectionLabel: 'Selected sandwich',
+  },
+  cooking_pies: {
+    panelTitle: 'Cooking · Pies',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search pies…',
+    searchAria: 'Filter pies',
+    listAria: 'Pie list',
+    searchIcon: '🥧',
+    searchIconItemId: 'T7_MEAL_PIE',
+    emptyList: 'No pie recipe matches that search.',
+    pickPrompt: 'Choose a pie to view ingredients and silver totals.',
+    selectionLabel: 'Selected pie',
+  },
+  cooking_omelettes: {
+    panelTitle: 'Cooking · Omelettes',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search omelettes…',
+    searchAria: 'Filter omelettes',
+    listAria: 'Omelette list',
+    searchIcon: '🍳',
+    searchIconItemId: 'T7_MEAL_OMELETTE',
+    emptyList: 'No omelette recipe matches that search.',
+    pickPrompt: 'Choose an omelette to view ingredients and silver totals.',
+    selectionLabel: 'Selected omelette',
+  },
+  cooking_roasts: {
+    panelTitle: 'Cooking · Roasts',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search roasts…',
+    searchAria: 'Filter roasts',
+    listAria: 'Roast list',
+    searchIcon: '🍖',
+    searchIconItemId: 'T7_MEAL_ROAST',
+    emptyList: 'No roast recipe matches that search.',
+    pickPrompt: 'Choose a roast to view ingredients and silver totals.',
+    selectionLabel: 'Selected roast',
+  },
+  cooking_grilledfish: {
+    panelTitle: 'Cooking · Grilled Fish',
+    itemSingular: 'meal',
+    itemPlural: 'meals',
+    searchPlaceholder: 'Search grilled fish…',
+    searchAria: 'Filter grilled fish',
+    listAria: 'Grilled fish list',
+    searchIcon: '🐟',
+    searchIconItemId: 'T1_MEAL_GRILLEDFISH',
+    emptyList: 'No grilled fish recipe matches that search.',
+    pickPrompt: 'Choose a grilled fish meal to view ingredients and silver totals.',
+    selectionLabel: 'Selected grilled fish',
+  },
 }
 
 function isArmorCraftKind(
@@ -433,6 +545,32 @@ function isArmorCraftKind(
 
 function isBrewingKind(kind: CraftPlannerKind): kind is Extract<CraftPlannerKind, `brewing_${string}`> {
   return kind.startsWith('brewing_')
+}
+
+function isCookingKind(kind: CraftPlannerKind): kind is Extract<CraftPlannerKind, `cooking_${string}`> {
+  return kind.startsWith('cooking_')
+}
+
+function itemTierFamilyKey(uniqueName: string): string {
+  return uniqueName.replace(/^T\d+_/, '').replace(/_LEVEL\d+$/, '')
+}
+
+function cookingTierFamilyKey(uniqueName: string): string {
+  return uniqueName.replace(/^T\d+_/, '').replace(/_LEVEL\d+$/, '')
+}
+
+function tierFromUniqueName(uniqueName: string): number | null {
+  const m = uniqueName.match(/^T(\d+)_/)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isFinite(n) ? n : null
+}
+
+function refiningEnchantFromUniqueName(uniqueName: string): number {
+  const m = uniqueName.match(/_LEVEL([1-4])$/)
+  if (!m) return 0
+  const n = Number(m[1])
+  return Number.isFinite(n) ? n : 0
 }
 
 function loadStoredPrices(): Record<string, number> {
@@ -475,6 +613,12 @@ function tierVibeClass(tier?: number): string {
   if (tier == null) return ''
   if (tier < 4 || tier > 8) return ''
   return `selection-banner--tier${tier}`
+}
+
+function enchantVibeClass(enchant?: number): string {
+  if (enchant == null) return ''
+  if (enchant < 1 || enchant > 4) return ''
+  return `selection-banner--ench${enchant}`
 }
 
 function loadStoredSetup(): CraftSetupState {
@@ -541,12 +685,18 @@ function ItemCell({
 
 export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const ui = SECTION_UI[kind]
-  const supportsPreviewEnchant = isArmorCraftKind(kind)
+  const maxEnchantDisplay = isBrewingKind(kind) || isCookingKind(kind) ? 3 : 4
+  const enchantDisplayValues = ENCHANT_DISPLAY.filter((n) => n <= maxEnchantDisplay)
   const isRefiningSection = kind.startsWith('refining_')
+  const supportsPreviewEnchantNonRefining =
+    isArmorCraftKind(kind) || isCookingKind(kind) || isBrewingKind(kind)
+  const enchantPreviewMinTier = isCookingKind(kind) ? 3 : 4
   const outputLocalFolder: LocalIconFolder = isArmorCraftKind(kind)
     ? kind
     : isBrewingKind(kind)
       ? 'alchemist'
+      : isCookingKind(kind)
+        ? 'cooking'
       : 'resources'
   const initialSetup = useMemo(() => loadStoredSetup(), [])
 
@@ -572,8 +722,15 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const [rrr, setRrr] = useState(initialSetup.rrr)
   /** `null` = all tiers. Toggle same tier again to clear. */
   const [tierFilter, setTierFilter] = useState<number | null>(null)
+
   /** List icon enchant (render @N). Used when `tierFilter >= 4`. */
   const [listEnchantView, setListEnchantView] = useState(0)
+
+  useEffect(() => {
+    if (listEnchantView > maxEnchantDisplay) {
+      setListEnchantView(maxEnchantDisplay)
+    }
+  }, [listEnchantView, maxEnchantDisplay])
 
   useEffect(() => {
     let cancelled = false
@@ -597,32 +754,156 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   }, [kind])
 
   const recipes = useMemo(() => payload?.recipes ?? [], [payload])
+  const canUseRefiningEnchant = useMemo(
+    () => isRefiningSection && recipes.some((r) => /_LEVEL[1-4]$/.test(r.uniqueName)),
+    [isRefiningSection, recipes]
+  )
+  const supportsPreviewEnchant = supportsPreviewEnchantNonRefining || canUseRefiningEnchant
+  const availableTiers = useMemo(() => {
+    const set = new Set<number>()
+    for (const r of recipes) {
+      if (typeof r.tier === 'number') set.add(r.tier)
+    }
+    const tiers = [...set].sort((a, b) => a - b).filter((t) => TIER_VALUES.includes(t as (typeof TIER_VALUES)[number]))
+    if (isRefiningSection) return tiers.filter((t) => t !== 1)
+    return tiers.length > 0 ? tiers : [...TIER_VALUES]
+  }, [recipes, isRefiningSection])
+
+  useEffect(() => {
+    if (tierFilter != null && !availableTiers.includes(tierFilter)) {
+      setTierFilter(null)
+    }
+  }, [availableTiers, tierFilter])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return recipes.filter((r) => {
-      if (!isBrewingKind(kind) && tierFilter != null && r.tier !== tierFilter) return false
+      if (tierFilter != null && r.tier !== tierFilter) return false
+      if (canUseRefiningEnchant && tierFilter != null && tierFilter >= enchantPreviewMinTier) {
+        // In refining, keep list rows aligned with selected enchant level.
+        const rowEnchant = refiningEnchantFromUniqueName(r.uniqueName)
+        if (rowEnchant !== listEnchantView) return false
+      }
       return itemMatchesSearchQuery(r.uniqueName, q, itemNames)
     })
-  }, [recipes, query, tierFilter, itemNames, kind])
+  }, [recipes, query, tierFilter, itemNames, kind, canUseRefiningEnchant, enchantPreviewMinTier, listEnchantView])
 
   const listIconEnchant =
     supportsPreviewEnchant && tierFilter != null && tierFilter >= 4 && listEnchantView > 0
       ? listEnchantView
       : undefined
+  const listRefiningEnchant =
+    canUseRefiningEnchant && tierFilter != null && tierFilter >= enchantPreviewMinTier && listEnchantView > 0
+      ? listEnchantView
+      : 0
 
   const selected = useMemo(
     () => recipes.find((r) => r.uniqueName === selectedId) ?? null,
     [recipes, selectedId]
   )
 
-  const selectedBrewingTiers = useMemo(() => {
-    if (!isBrewingKind(kind) || !selected) return []
-    const family = potionTierFamilyKey(selected.uniqueName)
+  /** Keep the current selection visible in the left list when tier/search filters would hide it. */
+  const listRows = useMemo(() => {
+    if (!selected) return filtered
+    if (filtered.some((r) => r.uniqueName === selected.uniqueName)) return filtered
+    return [selected, ...filtered]
+  }, [filtered, selected])
+
+  const selectedListRowRef = useRef<HTMLButtonElement | null>(null)
+
+  useLayoutEffect(() => {
+    if (!selectedId) return
+    selectedListRowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedId, kind, query, tierFilter, listEnchantView])
+
+  const selectedTierValue = useMemo(() => {
+    if (!selected) return null
+    if (typeof selected.tier === 'number') return selected.tier
+    return tierFromUniqueName(selected.uniqueName)
+  }, [selected])
+
+  const selectedTierVariants = useMemo(() => {
+    if (!selected) return []
+    const family = isBrewingKind(kind)
+      ? potionTierFamilyKey(selected.uniqueName)
+      : isCookingKind(kind)
+        ? cookingTierFamilyKey(selected.uniqueName)
+        : itemTierFamilyKey(selected.uniqueName)
     return recipes
-      .filter((r) => potionTierFamilyKey(r.uniqueName) === family)
-      .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0))
+      .filter((r) => {
+        const rowFamily = isBrewingKind(kind)
+          ? potionTierFamilyKey(r.uniqueName)
+          : isCookingKind(kind)
+            ? cookingTierFamilyKey(r.uniqueName)
+            : itemTierFamilyKey(r.uniqueName)
+        return rowFamily === family
+      })
+      .sort((a, b) => {
+        const ta = a.tier ?? tierFromUniqueName(a.uniqueName) ?? 0
+        const tb = b.tier ?? tierFromUniqueName(b.uniqueName) ?? 0
+        if (ta !== tb) return ta - tb
+        // Prefer base (no _LEVELx) when multiple IDs exist for same tier.
+        const aBase = /_LEVEL\d+$/.test(a.uniqueName) ? 1 : 0
+        const bBase = /_LEVEL\d+$/.test(b.uniqueName) ? 1 : 0
+        return aBase - bBase
+      })
+      .reduce<typeof recipes>((acc, r) => {
+        const t = r.tier ?? tierFromUniqueName(r.uniqueName) ?? -1
+        if (t < 0) return acc
+        if (!acc.some((x) => (x.tier ?? tierFromUniqueName(x.uniqueName) ?? -1) === t)) {
+          acc.push(r)
+        }
+        return acc
+      }, [])
   }, [kind, selected, recipes])
+  const selectedRefiningFamily = useMemo(
+    () => (isRefiningSection && selected ? itemTierFamilyKey(selected.uniqueName) : null),
+    [isRefiningSection, selected]
+  )
+  const selectRecipe = useCallback(
+    (recipe: CraftRecipe) => {
+      setSelectedId(recipe.uniqueName)
+      const nextTier = recipe.tier ?? tierFromUniqueName(recipe.uniqueName)
+      if (nextTier != null) {
+        setTierFilter(nextTier)
+      }
+      if (canUseRefiningEnchant) {
+        const nextEnchant = refiningEnchantFromUniqueName(recipe.uniqueName)
+        if (nextTier != null && nextTier >= enchantPreviewMinTier) {
+          setListEnchantView(nextEnchant)
+        } else {
+          setListEnchantView(0)
+        }
+      } else if (isRefiningSection) {
+        setListEnchantView(0)
+      }
+    },
+    [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier]
+  )
+
+  const selectedDisplayUniqueName = useMemo(() => {
+    if (!selected) return null
+    if (!isRefiningSection || !canUseRefiningEnchant) return selected.uniqueName
+    const enchant =
+      selectedTierValue != null && selectedTierValue >= enchantPreviewMinTier && listEnchantView > 0
+        ? listEnchantView
+        : 0
+    return withRefinedEnchant(selected.uniqueName, enchant)
+  }, [selected, isRefiningSection, canUseRefiningEnchant, selectedTierValue, enchantPreviewMinTier, listEnchantView])
+  const selectedPreviewEnchant = useMemo(() => {
+    if (!selected || selectedTierValue == null || selectedTierValue < enchantPreviewMinTier) return 0
+    const ench = Math.max(0, Math.min(maxEnchantDisplay, listEnchantView))
+    return ench
+  }, [selected, selectedTierValue, enchantPreviewMinTier, maxEnchantDisplay, listEnchantView])
+  const selectedBannerClasses = useMemo(
+    () =>
+      `selection-banner ${tierVibeClass(selectedTierValue ?? undefined)} ${enchantVibeClass(selectedPreviewEnchant)}`.trim(),
+    [selectedTierValue, selectedPreviewEnchant]
+  )
+  const selectedHeroIconClass = useMemo(
+    () => `item-icon--hero ${enchantVibeClass(selectedPreviewEnchant)}`.trim(),
+    [selectedPreviewEnchant]
+  )
 
   const owned = useMemo(() => {
     if (!selectedId) return {}
@@ -653,13 +934,17 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     if (!selected) return []
     const craftEnchant =
       supportsPreviewEnchant &&
-      selected.tier != null &&
-      selected.tier >= 4 &&
+      selectedTierValue != null &&
+      selectedTierValue >= enchantPreviewMinTier &&
       listEnchantView > 0
         ? listEnchantView
         : 0
 
-    return selected.resources.map((r) => {
+    const applicableResources = selected.resources.filter((r) =>
+      craftEnchant > 0 ? (r.enchantmentLevel == null || r.enchantmentLevel === craftEnchant) : r.enchantmentLevel == null
+    )
+
+    return applicableResources.map((r) => {
       const resourceId = withRefinedEnchant(r.uniqueName, craftEnchant)
       const requiredQty = r.count * craftQty
       const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
@@ -667,7 +952,23 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
       const line = needBuy * unit
       return { ...r, uniqueName: resourceId, requiredQty, needBuy, unit, line }
     })
-  }, [selected, owned, unitPrices, supportsPreviewEnchant, listEnchantView, craftQty])
+  }, [
+    selected,
+    selectedTierValue,
+    owned,
+    unitPrices,
+    supportsPreviewEnchant,
+    enchantPreviewMinTier,
+    listEnchantView,
+    craftQty,
+  ])
+
+  useEffect(() => {
+    // Reset section-local filters when switching to another craft section.
+    setTierFilter(null)
+    setListEnchantView(0)
+    setSelectedId(null)
+  }, [kind])
 
   const matsTotal = rows.reduce((s, r) => s + r.line, 0)
   const baseStationSilver = selected?.stationSilver ?? 0
@@ -744,7 +1045,15 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               <code className="inline-code">brewing_hellfire_recipes.json</code>,{' '}
               <code className="inline-code">brewing_gathering_recipes.json</code>,{' '}
               <code className="inline-code">brewing_tornado_recipes.json</code>,{' '}
-              <code className="inline-code">brewing_focus_recipes.json</code>, and{' '}
+              <code className="inline-code">brewing_focus_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_stews_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_soups_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_salads_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_sandwiches_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_pies_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_omelettes_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_roasts_recipes.json</code>,{' '}
+              <code className="inline-code">cooking_grilledfish_recipes.json</code>, and{' '}
               <code className="inline-code">item_names_en.json</code> (English display names).
             </p>
           </div>
@@ -757,67 +1066,62 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     return <div className="planner" aria-hidden />
   }
 
+  const renderTierControls = (mode: 'list' | 'selected') => {
+    if (mode === 'selected') {
+      if (
+        !selected ||
+        !supportsPreviewEnchant ||
+        selectedTierValue == null ||
+        selectedTierValue < enchantPreviewMinTier
+      ) {
+        return null
+      }
+      return (
+        <div className="selection-tier-variants selection-tier-variants--filters">
+          <span className="selection-tier-variants__label">Enchant</span>
+          <div className="chip-row">
+            {enchantDisplayValues.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`chip chip--enchant${listEnchantView === n ? ' is-active' : ''}`}
+                aria-pressed={listEnchantView === n}
+                onClick={() => setListEnchantView(n)}
+              >
+                {selectedTierValue}.{n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="selection-tier-variants selection-tier-variants--filters">
+        <span className="selection-tier-variants__label">Tier</span>
+        <div className="chip-row">
+          {availableTiers.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`chip chip--tier${tierFilter === t ? ' is-active' : ''}`}
+              aria-pressed={tierFilter === t}
+              onClick={() => setTierFilter((cur) => (cur === t ? null : t))}
+              title="Tap active tier again to clear."
+            >
+              T{t}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="planner">
       <div className="workspace">
         <section className="panel panel--armory">
           <h2 className="panel-title">{ui.panelTitle}</h2>
-
-          {!isBrewingKind(kind) ? (
-            <>
-              <div className="armory-filters">
-                <div
-                  className="filter-strip"
-                  role="group"
-                  aria-label="Item tier"
-                  title="Tap the active tier again to show all tiers."
-                >
-                  <span className="filter-strip__label">Tier</span>
-                  <div className="chip-row">
-                    {TIER_VALUES.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`chip chip--tier${tierFilter === t ? ' is-active' : ''}`}
-                        aria-pressed={tierFilter === t}
-                        onClick={() => setTierFilter((cur) => (cur === t ? null : t))}
-                      >
-                        T{t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {supportsPreviewEnchant && tierFilter != null && tierFilter >= 4 ? (
-                  <div
-                    className="filter-strip filter-strip--enchant"
-                    role="group"
-                    aria-label="Enchantment"
-                    title="Enchant only updates list icons; recipe data is still the flat item."
-                  >
-                    <span className="filter-strip__label">Enchant</span>
-                    <div className="chip-row">
-                      {ENCHANT_DISPLAY.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={`chip chip--enchant${listEnchantView === n ? ' is-active' : ''}`}
-                          aria-pressed={listEnchantView === n}
-                          onClick={() => setListEnchantView(n)}
-                        >
-                          {tierFilter}.{n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <p className="armory-legend">
-                Tap the active tier again to clear · T4+ enchant only affects icons, not mat costs.
-              </p>
-            </>
-          ) : null}
 
           <div className="search-block">
             <div className="search-wrap">
@@ -833,7 +1137,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                 ) : ui.searchIconItemId ? (
                   <ItemIcon
                     uniqueName={ui.searchIconItemId}
-                    localFolder={isBrewingKind(kind) ? 'alchemist' : 'resources'}
+                    localFolder={isBrewingKind(kind) ? 'alchemist' : isCookingKind(kind) ? 'cooking' : 'resources'}
                     size={18}
                     className="search-icon__item"
                     alt=""
@@ -865,8 +1169,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
             </div>
             <div className="search-meta">
               <span className="match-pill">
-                {filtered.length}{' '}
-                {filtered.length === 1 ? ui.itemSingular : ui.itemPlural}
+                {listRows.length}{' '}
+                {listRows.length === 1 ? ui.itemSingular : ui.itemPlural}
               </span>
               <p className="search-hint">
                 Filters stack
@@ -876,11 +1180,14 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
           <div className="card-scroll card-scroll--weapons" role="region" aria-label={ui.listAria}>
             <div className="weapon-list" role="listbox">
-              {filtered.length === 0 ? (
+              {listRows.length === 0 ? (
                 <div className="list-empty">{ui.emptyList}</div>
               ) : (
-                filtered.map((r) => {
+                listRows.map((r) => {
                   const isSel = selectedId === r.uniqueName
+                  const listIconUniqueName = isRefiningSection
+                    ? withRefinedEnchant(r.uniqueName, listRefiningEnchant)
+                    : r.uniqueName
                   return (
                   <button
                     key={r.uniqueName}
@@ -888,16 +1195,27 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                     role="option"
                     aria-selected={isSel}
                     className={`weapon-item${isSel ? ' is-selected' : ''}`}
-                    onClick={() => setSelectedId(r.uniqueName)}
+                    ref={(el) => {
+                      if (isSel) {
+                        selectedListRowRef.current = el
+                      } else if (selectedListRowRef.current === el) {
+                        selectedListRowRef.current = null
+                      }
+                    }}
+                    onClick={() => selectRecipe(r)}
                   >
                     <ItemIcon
-                      uniqueName={r.uniqueName}
-                      enchantmentLevel={listIconEnchant}
+                      uniqueName={listIconUniqueName}
+                      enchantmentLevel={isRefiningSection ? undefined : listIconEnchant}
                       localFolder={outputLocalFolder}
                       size={44}
                       className="item-icon--list"
                       alt=""
-                      hoverLabel={summarizeItemHoverLabel(r.uniqueName, listIconEnchant, itemNames)}
+                      hoverLabel={summarizeItemHoverLabel(
+                        listIconUniqueName,
+                        isRefiningSection ? undefined : listIconEnchant,
+                        itemNames
+                      )}
                       loading={isSel ? 'eager' : 'lazy'}
                       fetchPriority={isSel ? 'high' : undefined}
                     />
@@ -916,15 +1234,20 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         <div className="workspace-detail">
           {selected ? (
             <div className="workspace-detail-stack">
-          <div className={`selection-banner ${tierVibeClass(selected.tier)}`.trim()}>
+          <div className={selectedBannerClasses}>
             <ItemIcon
-              uniqueName={selected.uniqueName}
-              enchantmentLevel={listIconEnchant}
+              key={`${selectedDisplayUniqueName ?? selected.uniqueName}::${isRefiningSection ? 0 : (listIconEnchant ?? 0)}::${outputLocalFolder}`}
+              uniqueName={selectedDisplayUniqueName ?? selected.uniqueName}
+              enchantmentLevel={isRefiningSection ? undefined : listIconEnchant}
               localFolder={outputLocalFolder}
               size={72}
-              className="item-icon--hero"
+              className={selectedHeroIconClass}
               alt=""
-              hoverLabel={summarizeItemHoverLabel(selected.uniqueName, listIconEnchant, itemNames)}
+              hoverLabel={summarizeItemHoverLabel(
+                selectedDisplayUniqueName ?? selected.uniqueName,
+                isRefiningSection ? undefined : listIconEnchant,
+                itemNames
+              )}
               loading="eager"
               fetchPriority="high"
             />
@@ -932,35 +1255,65 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               <div className="selection-banner__label">{ui.selectionLabel}</div>
               <div className="selection-banner__name">
                 {isRefiningSection
-                  ? `${tierEnchantPrefix(selected.uniqueName)} ${formatItemDisplayName(
-                      selected.uniqueName,
+                  ? `${tierEnchantPrefix(selectedDisplayUniqueName ?? selected.uniqueName)} ${formatItemDisplayName(
+                      selectedDisplayUniqueName ?? selected.uniqueName,
                       itemNames
                     )}`.trim()
                   : formatItemDisplayName(selected.uniqueName, itemNames)}
               </div>
-              {supportsPreviewEnchant && tierFilter != null && tierFilter >= 4 && listEnchantView > 0 ? (
-                <div className="selection-banner__enchant">
-                  Preview {tierFilter}.{listEnchantView} icon
-                </div>
-              ) : null}
-              {isBrewingKind(kind) && selectedBrewingTiers.length > 1 ? (
+              {selectedTierVariants.length > 1 ? (
                 <div className="selection-tier-variants">
                   <span className="selection-tier-variants__label">All tiers</span>
                   <div className="chip-row">
-                    {selectedBrewingTiers.map((r) => (
+                    {selectedTierVariants.map((r) => (
+                      (() => {
+                        const chipTier = r.tier ?? tierFromUniqueName(r.uniqueName)
+                        const chipIsActive =
+                          chipTier != null && selectedTierValue != null && chipTier === selectedTierValue
+                        return (
                       <button
                         key={r.uniqueName}
                         type="button"
-                        className={`chip chip--tier${selectedId === r.uniqueName ? ' is-active' : ''}`}
-                        aria-pressed={selectedId === r.uniqueName}
-                        onClick={() => setSelectedId(r.uniqueName)}
+                        className={`chip chip--tier${chipIsActive ? ' is-active' : ''}`}
+                        aria-pressed={chipIsActive}
+                        onClick={() => {
+                          if (!isRefiningSection || selectedRefiningFamily == null) {
+                            selectRecipe(r)
+                            return
+                          }
+                          const targetTier = r.tier ?? tierFromUniqueName(r.uniqueName)
+                          if (targetTier == null) {
+                            selectRecipe(r)
+                            return
+                          }
+                          const sameFamilyTier = recipes.filter((x) => {
+                            const rowTier = x.tier ?? tierFromUniqueName(x.uniqueName)
+                            return rowTier === targetTier && itemTierFamilyKey(x.uniqueName) === selectedRefiningFamily
+                          })
+                          const preferredEnchant =
+                            targetTier >= enchantPreviewMinTier && canUseRefiningEnchant ? listEnchantView : 0
+                          const next =
+                            sameFamilyTier.find(
+                              (x) => refiningEnchantFromUniqueName(x.uniqueName) === preferredEnchant
+                            ) ??
+                            sameFamilyTier.find((x) => refiningEnchantFromUniqueName(x.uniqueName) === 0) ??
+                            sameFamilyTier[0]
+                          if (next) {
+                            selectRecipe(next)
+                          } else {
+                            selectRecipe(r)
+                          }
+                        }}
                       >
                         T{r.tier ?? '?'}
                       </button>
+                        )
+                      })()
                     ))}
                   </div>
                 </div>
               ) : null}
+              {renderTierControls('selected')}
             </div>
           </div>
 
@@ -1110,6 +1463,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
             </div>
           ) : (
             <section className="panel panel--pick">
+              {renderTierControls('list')}
               <p>{ui.pickPrompt}</p>
             </section>
           )}

@@ -42,9 +42,17 @@ const DATA_FILES = {
   brewing_gathering: 'brewing_gathering_recipes.json',
   brewing_tornado: 'brewing_tornado_recipes.json',
   brewing_focus: 'brewing_focus_recipes.json',
+  cooking_stews: 'cooking_stews_recipes.json',
+  cooking_soups: 'cooking_soups_recipes.json',
+  cooking_salads: 'cooking_salads_recipes.json',
+  cooking_sandwiches: 'cooking_sandwiches_recipes.json',
+  cooking_pies: 'cooking_pies_recipes.json',
+  cooking_omelettes: 'cooking_omelettes_recipes.json',
+  cooking_roasts: 'cooking_roasts_recipes.json',
+  cooking_grilledfish: 'cooking_grilledfish_recipes.json',
 }
 
-const FOLDERS = ['weapons', 'head', 'chest', 'boots', 'resources', 'alchemist']
+const FOLDERS = ['weapons', 'head', 'chest', 'boots', 'resources', 'alchemist', 'cooking']
 const EXTRA_RESOURCE_ICON_IDS = [
   'T4_CLOTH',
   'T4_LEATHER',
@@ -150,6 +158,7 @@ function collectDownloadJobs(payloadByCategory) {
       return category
     }
     if (category.startsWith('brewing_')) return 'alchemist'
+    if (category.startsWith('cooking_')) return 'cooking'
     return 'resources'
   }
 
@@ -171,7 +180,8 @@ function collectDownloadJobs(payloadByCategory) {
 
       // UI supports enchant preview chips at T4+ (.1-.4)
       if (outputFolder !== 'resources' && Number(recipe.tier) >= 4) {
-        for (let e = 1; e <= 4; e += 1) {
+        const maxEnchant = outputFolder === 'alchemist' || outputFolder === 'cooking' ? 3 : 4
+        for (let e = 1; e <= maxEnchant; e += 1) {
           const ench = buildItemRenderId(recipe.uniqueName, e)
           addJob(outputFolder, ench)
         }

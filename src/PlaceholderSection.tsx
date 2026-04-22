@@ -1,6 +1,7 @@
 import type { WorkshopSection } from './types'
 
 const TITLES: Partial<Record<WorkshopSection, string>> = {
+  player_lookup: 'Player Look-Up',
   head: 'Head',
   chest: 'Chest',
   boots: 'Boots',
@@ -25,6 +26,14 @@ const TITLES: Partial<Record<WorkshopSection, string>> = {
   brewing_gathering: 'Brewing · Gathering',
   brewing_tornado: 'Brewing · Tornado',
   brewing_focus: 'Brewing · Focus',
+  cooking_stews: 'Cooking · Stews',
+  cooking_soups: 'Cooking · Soups',
+  cooking_salads: 'Cooking · Salads',
+  cooking_sandwiches: 'Cooking · Sandwiches',
+  cooking_pies: 'Cooking · Pies',
+  cooking_omelettes: 'Cooking · Omelettes',
+  cooking_roasts: 'Cooking · Roasts',
+  cooking_grilledfish: 'Cooking · Grilled Fish',
 }
 
 export function PlaceholderSection({ section }: { section: WorkshopSection }) {

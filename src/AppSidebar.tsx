@@ -11,10 +11,12 @@ type NavItem = {
 }
 
 type NavGroup = {
-  id: 'crafting' | 'refining' | 'brewing'
+  id: 'crafting' | 'refining' | 'brewing' | 'cooking'
   label: string
   items: NavItem[]
 }
+
+const TOP_LEVEL_ITEMS: NavItem[] = [{ id: 'player_lookup', label: 'Player Look-Up', icon: '👤' }]
 
 const GROUPS: NavGroup[] = [
   {
@@ -57,6 +59,20 @@ const GROUPS: NavGroup[] = [
       { id: 'brewing_gathering', label: 'Gathering', iconItemId: 'T8_POTION_GATHER' },
       { id: 'brewing_tornado', label: 'Tornado', iconItemId: 'T8_POTION_TORNADO' },
       { id: 'brewing_focus', label: 'Focus', iconItemId: 'T8_FOCUSPOTION_NONTRADABLE' },
+    ],
+  },
+  {
+    id: 'cooking',
+    label: 'Cooking',
+    items: [
+      { id: 'cooking_stews', label: 'Stews', iconItemId: 'T8_MEAL_STEW' },
+      { id: 'cooking_soups', label: 'Soups', iconItemId: 'T5_MEAL_SOUP' },
+      { id: 'cooking_salads', label: 'Salads', iconItemId: 'T6_MEAL_SALAD' },
+      { id: 'cooking_sandwiches', label: 'Sandwiches', iconItemId: 'T8_MEAL_SANDWICH' },
+      { id: 'cooking_pies', label: 'Pies', iconItemId: 'T7_MEAL_PIE' },
+      { id: 'cooking_omelettes', label: 'Omelettes', iconItemId: 'T7_MEAL_OMELETTE' },
+      { id: 'cooking_roasts', label: 'Roasts', iconItemId: 'T7_MEAL_ROAST' },
+      { id: 'cooking_grilledfish', label: 'Grilled Fish', iconItemId: 'T1_MEAL_GRILLEDFISH' },
     ],
   },
 ]
@@ -104,6 +120,22 @@ export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
 
       <nav className="sidebar-nav" aria-label="Sections">
         <div className="sidebar-nav__section">Workshop</div>
+        {TOP_LEVEL_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`sidebar-nav__item sidebar-nav__item--lookup${
+              activeSection === item.id ? ' is-active' : ''
+            }`}
+            aria-current={activeSection === item.id ? 'page' : undefined}
+            onClick={() => onNavigate(item.id)}
+          >
+            <span className="sidebar-nav__icon" aria-hidden>
+              {item.icon ?? '•'}
+            </span>
+            {item.label}
+          </button>
+        ))}
         {GROUPS.map((group) => {
           const isOpen = openGroup === group.id
           return (
@@ -143,7 +175,13 @@ export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
                         ) : item.iconItemId ? (
                           <ItemIcon
                             uniqueName={item.iconItemId}
-                            localFolder={group.id === 'brewing' ? 'alchemist' : 'resources'}
+                            localFolder={
+                              group.id === 'brewing'
+                                ? 'alchemist'
+                                : group.id === 'cooking'
+                                  ? 'cooking'
+                                  : 'resources'
+                            }
                             size={20}
                             className="sidebar-nav__icon-item"
                             alt=""

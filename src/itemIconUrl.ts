@@ -7,6 +7,7 @@ export type LocalIconFolder =
   | 'boots'
   | 'resources'
   | 'alchemist'
+  | 'cooking'
 
 export type ItemIconUrlOptions = {
   /** Item quality tier for the render (1–5). Default 1. */

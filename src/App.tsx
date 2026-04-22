@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { AppSidebar } from './AppSidebar'
+import { BattleDetailsPage } from './BattleDetailsPage'
 import { CraftPlanner } from './CraftPlanner'
+import { PlayerLookupPanel } from './PlayerLookupPanel'
 import { PlaceholderSection } from './PlaceholderSection'
-import type { CraftPlannerKind, WorkshopSection } from './types'
+import type { AodpRegion, CraftPlannerKind, WorkshopSection } from './types'
 import './App.css'
 
 const CRAFT_SECTIONS: CraftPlannerKind[] = [
@@ -30,6 +32,14 @@ const CRAFT_SECTIONS: CraftPlannerKind[] = [
   'brewing_gathering',
   'brewing_tornado',
   'brewing_focus',
+  'cooking_stews',
+  'cooking_soups',
+  'cooking_salads',
+  'cooking_sandwiches',
+  'cooking_pies',
+  'cooking_omelettes',
+  'cooking_roasts',
+  'cooking_grilledfish',
 ]
 
 function isCraftSection(s: WorkshopSection): s is CraftPlannerKind {
@@ -37,6 +47,9 @@ function isCraftSection(s: WorkshopSection): s is CraftPlannerKind {
 }
 
 function MainPanel({ section }: { section: WorkshopSection }) {
+  if (section === 'player_lookup') {
+    return <PlayerLookupPanel />
+  }
   if (isCraftSection(section)) {
     return <CraftPlanner kind={section} />
   }
@@ -44,6 +57,17 @@ function MainPanel({ section }: { section: WorkshopSection }) {
 }
 
 function App() {
+  const params = new URLSearchParams(window.location.search)
+  const battleEvent = params.get('battleEvent')
+  const battleRegionRaw = params.get('battleRegion')
+  const battleRegion: AodpRegion =
+    battleRegionRaw === 'asia' || battleRegionRaw === 'americas' || battleRegionRaw === 'europe'
+      ? battleRegionRaw
+      : 'asia'
+  if (battleEvent && battleEvent.trim().length > 0) {
+    return <BattleDetailsPage region={battleRegion} eventId={battleEvent.trim()} />
+  }
+
   const [section, setSection] = useState<WorkshopSection>('weapons')
 
   return (

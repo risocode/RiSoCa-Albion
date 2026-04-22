@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { itemIconUrl, localItemIconUrl, type LocalIconFolder } from './itemIconUrl'
 
@@ -38,6 +38,11 @@ export function ItemIcon({
     sourceMode === 'local'
       ? localItemIconUrl(localFolder, uniqueName, enchantmentLevel)
       : itemIconUrl(uniqueName, { size: Math.round(size * 2), enchantmentLevel })
+
+  useEffect(() => {
+    // Re-evaluate source from local cache whenever icon identity changes.
+    setSourceMode('local')
+  }, [localFolder, uniqueName, enchantmentLevel])
 
   useLayoutEffect(() => {
     if (!hovered) return

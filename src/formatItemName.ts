@@ -48,22 +48,43 @@ function parseTier(uniqueName: string): number | null {
 }
 
 function parseEnchantFromId(uniqueName: string): number | null {
+  const at = uniqueName.match(/@([1-4])$/)
+  if (at) return Number(at[1])
   const m = uniqueName.match(/_LEVEL([1-4])$/)
   return m ? Number(m[1]) : null
 }
 
+function normalizeNameLookupKey(uniqueName: string): string {
+  return uniqueName.replace(/@[1-4]$/, '').replace(/_LEVEL[1-4]$/, '')
+}
+
+function removeSetSuffix(name: string): string {
+  return name.replace(/\s+Set\s*\d+\b/gi, '').trim()
+}
+
 function summarizedBaseName(uniqueName: string, names?: ItemNameMap | null): string {
   const normalized = uniqueName.toUpperCase()
-  if (normalized.includes('_PLANKS')) return 'Planks'
-  if (normalized.includes('_CLOTH')) return 'Cloth'
-  if (normalized.includes('_LEATHER')) return 'Leather'
-  if (normalized.includes('_METALBAR')) return 'Metal Bars'
-  if (normalized.includes('_STONEBLOCK')) return 'Stone Blocks'
+  // Keep generic material labels only for pure refined resource IDs.
+  const refinedResource = normalized.match(
+    /^T\d+_(PLANKS|CLOTH|LEATHER|METALBAR|STONEBLOCK)(?:_LEVEL[1-4]|@[1-4])?$/
+  )
+  if (refinedResource) {
+    if (refinedResource[1] === 'PLANKS') return 'Planks'
+    if (refinedResource[1] === 'CLOTH') return 'Cloth'
+    if (refinedResource[1] === 'LEATHER') return 'Leather'
+    if (refinedResource[1] === 'METALBAR') return 'Metal Bars'
+    if (refinedResource[1] === 'STONEBLOCK') return 'Stone Blocks'
+  }
 
-  const localized = names?.[uniqueName]?.trim()
-  if (localized) return localized.replace(TIER_PREFIX_RE, '')
+  const lookupKey = normalizeNameLookupKey(uniqueName)
+  const localized = (names?.[uniqueName] ?? names?.[lookupKey])?.trim()
+  if (localized) return removeSetSuffix(localized.replace(TIER_PREFIX_RE, ''))
 
-  const compact = uniqueName.replace(/^T\d+_/, '').replace(/_LEVEL\d+$/, '')
+  const compact = uniqueName
+    .replace(/^T\d+_/, '')
+    .replace(/_LEVEL\d+$/, '')
+    .replace(/@[1-4]$/, '')
+    .replace(/_SET\d+\b/gi, '')
   return titleCaseWords(compact.replaceAll('_', ' '))
 }
 
