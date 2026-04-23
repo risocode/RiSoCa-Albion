@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   itemMatchesSearchQuery,
   summarizeItemHoverLabel,
@@ -6,6 +6,12 @@ import {
 } from './formatItemName'
 import { ItemIcon } from './ItemIcon'
 import type { AodpPriceRow, AodpRegion, CraftRecipe } from './types'
+import {
+  failBlackMarketFetch,
+  finishBlackMarketFetch,
+  setBlackMarketFetchPhase,
+  startBlackMarketFetch,
+} from './blackMarketFetchState'
 
 type CombatCategory = 'weapons' | 'offhands' | 'head' | 'chest' | 'boots'
 
@@ -94,7 +100,8 @@ function pickDirectSellPrice(rows: AodpPriceRow[], city: string): number {
 
 async function fetchDirectFlipPrices(
   region: AodpRegion,
-  itemIds: string[]
+  itemIds: string[],
+  onProgress?: (doneChunks: number, totalChunks: number) => void
 ): Promise<{ caerleonBuy: Record<string, number>; blackMarketSell: Record<string, number> }> {
   const unique = [...new Set(itemIds)].filter(Boolean)
   const caerleonBuy: Record<string, number> = {}
@@ -103,6 +110,8 @@ async function fetchDirectFlipPrices(
 
   const chunkSize = 40
   const base = REGION_PREFIX[region]
+  const totalChunks = Math.max(1, Math.ceil(unique.length / chunkSize))
+  let doneChunks = 0
   for (let i = 0; i < unique.length; i += chunkSize) {
     const chunk = unique.slice(i, i + chunkSize)
     const path = `${base}/api/v2/stats/prices/${encodeURIComponent(chunk.join(','))}.json`
@@ -123,6 +132,8 @@ async function fetchDirectFlipPrices(
       caerleonBuy[id] = pickDirectBuyPrice(rows, 'Caerleon')
       blackMarketSell[id] = pickDirectSellPrice(rows, 'Black Market')
     }
+    doneChunks += 1
+    onProgress?.(doneChunks, totalChunks)
   }
 
   return { caerleonBuy, blackMarketSell }
@@ -145,6 +156,7 @@ function categoryFolder(category: CombatCategory): CombatCategory {
 }
 
 export function BlackMarketFlip() {
+  const mountedRef = useRef(true)
   const [region, setRegion] = useState<AodpRegion>('asia')
   const [query, setQuery] = useState('')
   const [taxPct, setTaxPct] = useState(6.0)
@@ -161,6 +173,13 @@ export function BlackMarketFlip() {
   const [rows, setRows] = useState<FlipRow[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [statusMsg, setStatusMsg] = useState('')
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -245,9 +264,15 @@ export function BlackMarketFlip() {
     }
 
     setStatus('loading')
-    setStatusMsg('Fetching Caerleon and Black Market prices...')
+    setStatusMsg('Fetching items...')
+    startBlackMarketFetch('0%')
     try {
-      const priceMap = await fetchDirectFlipPrices(region, itemIds)
+      setBlackMarketFetchPhase('5%', 1)
+      const priceMap = await fetchDirectFlipPrices(region, itemIds, (doneChunks, totalChunks) => {
+        const pct = Math.min(90, Math.max(5, Math.round((doneChunks / Math.max(1, totalChunks)) * 85 + 5)))
+        setBlackMarketFetchPhase(`${pct}%`, 1)
+      })
+      setBlackMarketFetchPhase('93%', 2)
       const taxRate = Math.max(0, Math.min(100, taxPct)) / 100
       const nextRows: FlipRow[] = filteredCandidates.map((item) => {
         const caerleonBuy = priceMap.caerleonBuy[item.uniqueName] ?? 0
@@ -266,13 +291,30 @@ export function BlackMarketFlip() {
           marginPct,
         }
       })
-      setRows(nextRows)
-      setStatus('ok')
-      const visible = nextRows.filter((row) => row.caerleonBuy > 0 && row.blackMarketSell > 0).length
-      setStatusMsg(`Compared ${nextRows.length} items. Showing ${visible} with direct buy + direct sell data.`)
+      setBlackMarketFetchPhase('99%', 3)
+      const queryLower = query.trim().toLowerCase()
+      const visible = nextRows.filter((row) => {
+        if (!activeCategories[row.category]) return false
+        if (!itemMatchesSearchQuery(row.baseUniqueName, queryLower, itemNames)) return false
+        if (row.caerleonBuy <= 0 || row.blackMarketSell <= 0) return false
+        if (row.profit <= 0) return false
+        if (row.profit < minProfit) return false
+        return true
+      }).length
+      const successMessage = `Black Market comparison finished. Showing ${visible} visible flip rows.`
+      if (mountedRef.current) {
+        setRows(nextRows)
+        setStatus('ok')
+        setStatusMsg(`Compared ${nextRows.length} items. Showing ${visible} visible rows.`)
+      }
+      finishBlackMarketFetch(successMessage)
     } catch (error) {
-      setStatus('error')
-      setStatusMsg(error instanceof Error ? error.message : 'Price fetch failed')
+      const message = error instanceof Error ? error.message : 'Price fetch failed'
+      if (mountedRef.current) {
+        setStatus('error')
+        setStatusMsg(message)
+      }
+      failBlackMarketFetch(`Black Market comparison failed: ${message}`)
     }
   }
 

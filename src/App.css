@@ -1922,6 +1922,188 @@
   font-weight: 600;
 }
 
+.black-fetch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: rgba(5, 8, 14, 0.42);
+  backdrop-filter: blur(1px);
+}
+
+.black-fetch-modal {
+  position: relative;
+  width: min(470px, 92vw);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: blackFetchPopupIn 220ms ease-out;
+}
+
+.black-fetch-minimize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  min-width: 2rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.black-fetch-loader {
+  width: 100%;
+  padding: 0.1rem;
+}
+
+.black-fetch-loader svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.black-fetch-trace-bg {
+  stroke: #333;
+  stroke-width: 1.8;
+  fill: none;
+}
+
+.black-fetch-trace-flow {
+  stroke-width: 1.8;
+  fill: none;
+  stroke-dasharray: 40 400;
+  stroke-dashoffset: 438;
+  filter: drop-shadow(0 0 6px currentColor);
+  animation: blackFetchFlow 3s cubic-bezier(0.5, 0, 0.9, 1) infinite;
+}
+
+.black-fetch-yellow {
+  stroke: #ffea00;
+  color: #ffea00;
+}
+
+.black-fetch-blue {
+  stroke: #00ccff;
+  color: #00ccff;
+}
+
+.black-fetch-green {
+  stroke: #00ff15;
+  color: #00ff15;
+}
+
+.black-fetch-purple {
+  stroke: #9900ff;
+  color: #9900ff;
+}
+
+.black-fetch-red {
+  stroke: #ff3300;
+  color: #ff3300;
+}
+
+.black-fetch-restore {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1400;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(17, 25, 40, 0.95) 0%, rgba(10, 15, 26, 0.95) 100%);
+  color: var(--gold);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.42rem 0.66rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+}
+
+.black-fetch-restore__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.85);
+}
+
+.black-fetch-toast {
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  z-index: 1450;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(12, 18, 30, 0.97) 0%, rgba(8, 13, 23, 0.97) 100%);
+  color: var(--text);
+  padding: 0.5rem 0.62rem;
+  max-width: min(90vw, 520px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.42);
+  animation: blackFetchToastIn 220ms ease-out;
+}
+
+.black-fetch-toast.is-success {
+  border-color: rgba(84, 197, 122, 0.5);
+}
+
+.black-fetch-toast.is-error {
+  border-color: rgba(226, 92, 92, 0.55);
+}
+
+.black-fetch-toast__close {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.05rem 0.1rem;
+}
+
+@keyframes blackFetchFlow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes blackFetchPopupIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes blackFetchToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .resources-summary {
   margin-top: 0.3rem;
   border-top: 1px solid var(--border);

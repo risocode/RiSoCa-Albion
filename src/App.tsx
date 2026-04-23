@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AppSidebar } from './AppSidebar'
 import { BattleDetailsPage } from './BattleDetailsPage'
 import { BlackMarketFlip } from './BlackMarketFlip'
+import { BlackMarketFetchLoader } from './BlackMarketFetchLoader'
 import { CraftPlanner } from './CraftPlanner'
 import { PlayerLookupPanel } from './PlayerLookupPanel'
 import { PlaceholderSection } from './PlaceholderSection'
+import {
+  clearBlackMarketFetchNotice,
+  getBlackMarketFetchState,
+  subscribeBlackMarketFetchState,
+} from './blackMarketFetchState'
 import type { AodpRegion, CraftPlannerKind, WorkshopSection } from './types'
 import './App.css'
 
@@ -63,6 +69,7 @@ function MainPanel({ section }: { section: WorkshopSection }) {
 
 function App() {
   const [section, setSection] = useState<WorkshopSection>('weapons')
+  const fetchState = useSyncExternalStore(subscribeBlackMarketFetchState, getBlackMarketFetchState)
   const params = new URLSearchParams(window.location.search)
   const battleEvent = params.get('battleEvent')
   const battleRegionRaw = params.get('battleRegion')
@@ -70,6 +77,13 @@ function App() {
     battleRegionRaw === 'asia' || battleRegionRaw === 'americas' || battleRegionRaw === 'europe'
       ? battleRegionRaw
       : 'asia'
+
+  useEffect(() => {
+    if (!fetchState.notice) return
+    const t = window.setTimeout(() => clearBlackMarketFetchNotice(), 4500)
+    return () => window.clearTimeout(t)
+  }, [fetchState.notice?.id])
+
   if (battleEvent && battleEvent.trim().length > 0) {
     return <BattleDetailsPage region={battleRegion} eventId={battleEvent.trim()} />
   }
@@ -82,6 +96,20 @@ function App() {
           <MainPanel section={section} />
         </div>
       </main>
+      <BlackMarketFetchLoader />
+      {fetchState.notice ? (
+        <div className={`black-fetch-toast ${fetchState.notice.kind === 'error' ? 'is-error' : 'is-success'}`}>
+          <span>{fetchState.notice.message}</span>
+          <button
+            type="button"
+            className="black-fetch-toast__close"
+            aria-label="Close fetch notification"
+            onClick={() => clearBlackMarketFetchNotice()}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
