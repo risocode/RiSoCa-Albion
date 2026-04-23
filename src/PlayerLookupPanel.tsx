@@ -95,6 +95,10 @@ function nestedStatsObject(
   return null
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 type GuildHistoryEntry = {
   key: string
   guildName: string
@@ -191,9 +195,14 @@ export function PlayerLookupPanel() {
   const [detailRegion, setDetailRegion] = useState<AodpRegion>('asia')
   const battleModalRef = useRef<HTMLElement | null>(null)
   const [battleModalScale, setBattleModalScale] = useState(1)
+  const searchAbortRef = useRef<AbortController | null>(null)
+  const searchSeqRef = useRef(0)
+  const detailsAbortRef = useRef<AbortController | null>(null)
+  const detailsSeqRef = useRef(0)
 
   useEffect(() => {
     if (!detailEventId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBattleModalScale(1)
       return
     }
@@ -246,25 +255,38 @@ export function PlayerLookupPanel() {
   }, [profile, kills, deaths])
 
   const loadPlayerDetails = async (playerId: string) => {
+    detailsAbortRef.current?.abort()
+    const controller = new AbortController()
+    detailsAbortRef.current = controller
+    const requestSeq = detailsSeqRef.current + 1
+    detailsSeqRef.current = requestSeq
     setIsLoadingDetails(true)
     setError(null)
     setSelectedPlayerId(playerId)
     try {
       const [player, playerKills, playerDeaths] = await Promise.all([
-        fetchPlayerProfile(region, playerId),
-        fetchPlayerKills(region, playerId),
-        fetchPlayerDeaths(region, playerId),
+        fetchPlayerProfile(region, playerId, controller.signal),
+        fetchPlayerKills(region, playerId, controller.signal),
+        fetchPlayerDeaths(region, playerId, controller.signal),
       ])
+      if (requestSeq !== detailsSeqRef.current) return
       setProfile(player)
       setKills(playerKills)
       setDeaths(playerDeaths)
     } catch (e) {
+      if (isAbortError(e)) return
+      if (requestSeq !== detailsSeqRef.current) return
       setProfile(null)
       setKills([])
       setDeaths([])
       setError(e instanceof Error ? e.message : 'Failed to load player details.')
     } finally {
-      setIsLoadingDetails(false)
+      if (requestSeq === detailsSeqRef.current) {
+        setIsLoadingDetails(false)
+      }
+      if (detailsAbortRef.current === controller) {
+        detailsAbortRef.current = null
+      }
     }
   }
 
@@ -276,6 +298,13 @@ export function PlayerLookupPanel() {
       return
     }
 
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    const requestSeq = searchSeqRef.current + 1
+    searchSeqRef.current = requestSeq
+    detailsAbortRef.current?.abort()
+
     setIsSearching(true)
     setError(null)
     setProfile(null)
@@ -284,7 +313,8 @@ export function PlayerLookupPanel() {
     setSelectedPlayerId(null)
     setDetailEventId(null)
     try {
-      const found = await searchPlayersByIgn(region, query)
+      const found = await searchPlayersByIgn(region, query, controller.signal)
+      if (requestSeq !== searchSeqRef.current) return
       setMatches(found)
       if (found.length === 0) {
         setError('No players found for that IGN in this region.')
@@ -293,12 +323,26 @@ export function PlayerLookupPanel() {
       const exact = found.find((p) => p.name.toLowerCase() === query.toLowerCase()) ?? found[0]
       await loadPlayerDetails(exact.id)
     } catch (e) {
+      if (isAbortError(e)) return
+      if (requestSeq !== searchSeqRef.current) return
       setMatches([])
       setError(e instanceof Error ? e.message : 'Failed to search player.')
     } finally {
-      setIsSearching(false)
+      if (requestSeq === searchSeqRef.current) {
+        setIsSearching(false)
+      }
+      if (searchAbortRef.current === controller) {
+        searchAbortRef.current = null
+      }
     }
   }
+
+  useEffect(() => {
+    return () => {
+      searchAbortRef.current?.abort()
+      detailsAbortRef.current?.abort()
+    }
+  }, [])
 
   return (
     <div className="planner">

@@ -104,8 +104,8 @@ export type EventDetails = {
   [key: string]: unknown
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(path)
+async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, { signal })
   if (!res.ok) {
     throw new Error(`GameInfo ${res.status}`)
   }
@@ -185,13 +185,14 @@ function normalizeSearchEntry(entry: Record<string, unknown>): PlayerSearchResul
 
 export async function searchPlayersByIgn(
   region: AodpRegion,
-  ign: string
+  ign: string,
+  signal?: AbortSignal
 ): Promise<PlayerSearchResult[]> {
   const q = ign.trim()
   if (!q) return []
   const base = GAMEINFO_PREFIX[region]
   const path = `${base}/api/gameinfo/search?q=${encodeURIComponent(q)}`
-  const raw = await fetchJson<unknown>(path)
+  const raw = await fetchJson<unknown>(path, signal)
   const entries = Array.isArray(raw)
     ? raw
     : raw && typeof raw === 'object' && Array.isArray((raw as { players?: unknown[] }).players)
@@ -207,30 +208,53 @@ export async function searchPlayersByIgn(
   return out
 }
 
-export async function fetchPlayerProfile(region: AodpRegion, playerId: string): Promise<PlayerProfile> {
+export async function fetchPlayerProfile(
+  region: AodpRegion,
+  playerId: string,
+  signal?: AbortSignal
+): Promise<PlayerProfile> {
   const base = GAMEINFO_PREFIX[region]
   const path = `${base}/api/gameinfo/players/${encodeURIComponent(playerId)}`
-  return await fetchJson<PlayerProfile>(path)
+  return await fetchJson<PlayerProfile>(path, signal)
 }
 
-export async function fetchPlayerKills(region: AodpRegion, playerId: string): Promise<PlayerEvent[]> {
+export async function fetchPlayerKills(
+  region: AodpRegion,
+  playerId: string,
+  signal?: AbortSignal
+): Promise<PlayerEvent[]> {
   const base = GAMEINFO_PREFIX[region]
   const path = `${base}/api/gameinfo/players/${encodeURIComponent(playerId)}/kills`
-  const data = await fetchJson<unknown>(path)
+  const data = await fetchJson<unknown>(path, signal)
   return Array.isArray(data) ? (data as PlayerEvent[]) : []
 }
 
-export async function fetchPlayerDeaths(region: AodpRegion, playerId: string): Promise<PlayerEvent[]> {
+export async function fetchPlayerDeaths(
+  region: AodpRegion,
+  playerId: string,
+  signal?: AbortSignal
+): Promise<PlayerEvent[]> {
   const base = GAMEINFO_PREFIX[region]
   const path = `${base}/api/gameinfo/players/${encodeURIComponent(playerId)}/deaths`
-  const data = await fetchJson<unknown>(path)
+  const data = await fetchJson<unknown>(path, signal)
   return Array.isArray(data) ? (data as PlayerEvent[]) : []
 }
 
-export async function fetchEventDetails(region: AodpRegion, eventId: string): Promise<EventDetails> {
+export async function fetchEventDetails(
+  region: AodpRegion,
+  eventId: string,
+  signal?: AbortSignal
+): Promise<EventDetails> {
   const key = eventDetailsKey(region, eventId)
   const cached = getCachedEventDetails(region, eventId)
   if (cached) return cached
+
+  if (signal) {
+    const base = GAMEINFO_PREFIX[region]
+    const path = `${base}/api/gameinfo/events/${encodeURIComponent(eventId)}`
+    const data = await fetchJson<EventDetails>(path, signal)
+    return cacheEventDetails(key, data)
+  }
 
   const inFlight = eventDetailsInFlight.get(key)
   if (inFlight) return inFlight

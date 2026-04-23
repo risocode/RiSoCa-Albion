@@ -1,0 +1,28 @@
+{
+  "rewrites": [
+    {
+      "source": "/aodp-americas/:path*",
+      "destination": "https://west.albion-online-data.com/:path*"
+    },
+    {
+      "source": "/aodp-europe/:path*",
+      "destination": "https://europe.albion-online-data.com/:path*"
+    },
+    {
+      "source": "/aodp-asia/:path*",
+      "destination": "https://east.albion-online-data.com/:path*"
+    },
+    {
+      "source": "/gameinfo-americas/:path*",
+      "destination": "https://gameinfo.albiononline.com/:path*"
+    },
+    {
+      "source": "/gameinfo-europe/:path*",
+      "destination": "https://gameinfo-ams.albiononline.com/:path*"
+    },
+    {
+      "source": "/gameinfo-asia/:path*",
+      "destination": "https://gameinfo-sgp.albiononline.com/:path*"
+    }
+  ]
+}

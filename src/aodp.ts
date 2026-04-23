@@ -31,8 +31,12 @@ function pickSellQ1(rows: AodpPriceRow[], city: PriceCity): number {
   return Math.min(...pool.map((r) => r.sell_price_min))
 }
 
-async function loadLocalPriceMap(region: AodpRegion, city: PriceCity): Promise<Record<string, number>> {
-  const res = await fetch(LOCAL_PRICE_FILE[region])
+async function loadLocalPriceMap(
+  region: AodpRegion,
+  city: PriceCity,
+  signal?: AbortSignal
+): Promise<Record<string, number>> {
+  const res = await fetch(LOCAL_PRICE_FILE[region], { signal })
   if (!res.ok) {
     throw new Error(`local price file ${res.status}`)
   }
@@ -69,7 +73,8 @@ async function loadLocalPriceMap(region: AodpRegion, city: PriceCity): Promise<R
 export async function fetchPricesForItems(
   region: AodpRegion,
   itemIds: string[],
-  city: PriceCity = 'lowest'
+  city: PriceCity = 'lowest',
+  signal?: AbortSignal
 ): Promise<Record<string, number>> {
   const unique = [...new Set(itemIds)].filter(Boolean)
   const out: Record<string, number> = {}
@@ -79,7 +84,7 @@ export async function fetchPricesForItems(
   // Only missing IDs fall back to live API.
   let pending = unique
   try {
-    const local = await loadLocalPriceMap(region, city)
+    const local = await loadLocalPriceMap(region, city, signal)
     for (const id of unique) {
       if (Object.prototype.hasOwnProperty.call(local, id)) {
         out[id] = local[id]
@@ -97,7 +102,7 @@ export async function fetchPricesForItems(
   for (let i = 0; i < pending.length; i += chunkSize) {
     const chunk = pending.slice(i, i + chunkSize)
     const path = `${base}/api/v2/stats/prices/${encodeURIComponent(chunk.join(','))}.json`
-    const res = await fetch(path)
+    const res = await fetch(path, { signal })
     if (!res.ok) {
       throw new Error(`AODP ${res.status}: ${path}`)
     }

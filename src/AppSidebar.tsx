@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ItemIcon } from './ItemIcon'
 import type { WorkshopSection } from './types'
 
@@ -85,16 +85,13 @@ type AppSidebarProps = {
 
 export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
   const gradId = useId().replace(/:/g, '')
-  const [openGroup, setOpenGroup] = useState<NavGroup['id'] | null>(null)
+  const inferredOpenGroup = useMemo(
+    () => GROUPS.find((g) => g.items.some((i) => i.id === activeSection))?.id ?? null,
+    [activeSection]
+  )
+  const [openGroup, setOpenGroup] = useState<NavGroup['id'] | null>(inferredOpenGroup)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    const containing = GROUPS.find((g) => g.items.some((i) => i.id === activeSection))
-    if (containing) {
-      setOpenGroup((prev) => (prev === containing.id ? prev : containing.id))
-    }
-  }, [activeSection])
 
   useEffect(() => {
     if (!isProfileMenuOpen) return

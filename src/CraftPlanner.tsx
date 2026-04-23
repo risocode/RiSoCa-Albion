@@ -76,7 +76,10 @@ function loadRecipeData(kind: CraftPlannerKind): Promise<RecipesPayload> {
     const data = (await res.json()) as RecipesPayload
     recipeCache[kind] = data
     return data
-  })()
+  })().catch((error) => {
+    delete recipePromiseCache[kind]
+    throw error
+  })
 
   recipePromiseCache[kind] = p
   return p
@@ -100,7 +103,10 @@ function loadItemNamesData(): Promise<ItemNameMap> {
     }
     namesCache = {}
     return namesCache
-  })()
+  })().catch((error) => {
+    namesPromiseCache = null
+    throw error
+  })
 
   return namesPromiseCache
 }
@@ -647,7 +653,7 @@ function loadStoredPrices(): Record<string, number> {
     const out: Record<string, number> = {}
     for (const [k, v] of Object.entries(o)) {
       const n = Number(v)
-      if (!Number.isNaN(n) && n >= 0) out[k] = n
+      if (Number.isFinite(n) && n >= 0) out[k] = n
     }
     return out
   } catch {
@@ -667,6 +673,10 @@ const TIER_VALUES = [1, 2, 3, 4, 5, 6, 7, 8] as const
 const ENCHANT_DISPLAY = [0, 1, 2, 3, 4] as const
 const MAX_RESOURCE_ROWS = 6
 const MAX_CRAFT_QTY = 9999
+const MAX_RESOURCE_QTY = 99999999
+const MAX_UNIT_PRICE = 9999999999
+const MAX_USAGE_FEE = 1000000
+const MAX_RRR = 100
 const PRICE_CITY_OPTIONS: ReadonlyArray<{ value: PriceCity; label: string }> = [
   { value: 'lowest', label: 'Lowest Price' },
   { value: 'Bridgewatch', label: 'Bridgewatch' },
@@ -695,6 +705,16 @@ function saveStoredPriceCity(city: PriceCity) {
 function clampCraftQty(n: number): number {
   if (!Number.isFinite(n)) return 1
   return Math.max(1, Math.min(MAX_CRAFT_QTY, Math.floor(n)))
+}
+
+function clampNonNegativeInt(n: number, max: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(max, Math.floor(n)))
+}
+
+function clampNonNegativeFloat(n: number, max: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(0, Math.min(max, n))
 }
 
 /** Matches `shopSub1` on weapon recipes from the parser (display order like in-game). */
@@ -796,11 +816,11 @@ function loadStoredSetup(): CraftSetupState {
     return {
       usageFee:
         typeof parsed.usageFee === 'number' && Number.isFinite(parsed.usageFee)
-          ? Math.max(0, parsed.usageFee)
+          ? clampNonNegativeInt(parsed.usageFee, MAX_USAGE_FEE)
           : DEFAULT_CRAFT_SETUP.usageFee,
       rrr:
         typeof parsed.rrr === 'number' && Number.isFinite(parsed.rrr)
-          ? Math.max(0, Math.min(100, parsed.rrr))
+          ? clampNonNegativeFloat(parsed.rrr, MAX_RRR)
           : DEFAULT_CRAFT_SETUP.rrr,
     }
   } catch {
@@ -900,6 +920,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const [showCraftSetup, setShowCraftSetup] = useState(false)
   const shouldCloseCraftSetupOnClickRef = useRef(false)
   const priceCityPickerRef = useRef<HTMLDivElement | null>(null)
+  const marketFetchSeqRef = useRef(0)
+  const marketFetchAbortRef = useRef<AbortController | null>(null)
   const [craftQty, setCraftQty] = useState(1)
   const [usageFee, setUsageFee] = useState(initialSetup.usageFee)
   const [rrr, setRrr] = useState(initialSetup.rrr)
@@ -915,6 +937,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   useEffect(() => {
     if (listEnchantView > maxEnchantDisplay) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setListEnchantView(maxEnchantDisplay)
     }
   }, [listEnchantView, maxEnchantDisplay])
@@ -958,6 +981,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   useEffect(() => {
     if (tierFilter != null && !availableTiers.includes(tierFilter)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTierFilter(null)
     }
   }, [availableTiers, tierFilter])
@@ -1037,11 +1061,13 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const selectedListRowRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRefiningVariantIndex(0)
   }, [listEnchantView, tierFilter, kind])
 
   useEffect(() => {
     if (!isRefiningSection) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRefiningVariantIndex((i) => {
       if (refiningVariants.length === 0) return 0
       return Math.min(i, refiningVariants.length - 1)
@@ -1051,6 +1077,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   useEffect(() => {
     if (selectedId == null) return
     if (listRows.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedId(null)
       return
     }
@@ -1130,7 +1157,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         setListEnchantView(0)
       }
     },
-    [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier]
+    [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier, setRefiningVariantIndex]
   )
 
   const recipeStorageKey = selected?.uniqueName ?? null
@@ -1166,7 +1193,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   const setUnitPrice = useCallback((id: string, value: number) => {
     setUnitPrices((prev) => {
-      const next = { ...prev, [id]: value }
+      const safeValue = clampNonNegativeInt(value, MAX_UNIT_PRICE)
+      const next = { ...prev, [id]: safeValue }
       saveStoredPrices(next)
       return next
     })
@@ -1174,7 +1202,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   const setOwnedQty = useCallback((resourceId: string, value: number) => {
     if (!recipeStorageKey) return
-    const qty = Math.max(0, Math.floor(value))
+    const qty = clampNonNegativeInt(value, MAX_RESOURCE_QTY)
     setOwnedByRecipe((prev) => ({
       ...prev,
       [recipeStorageKey]: {
@@ -1184,15 +1212,19 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     }))
   }, [recipeStorageKey])
 
-  const rows = useMemo(() => {
-    if (!selected) return []
-    const craftEnchant =
+  const craftEnchant = useMemo(
+    () =>
       supportsPreviewEnchant &&
       selectedTierValue != null &&
       selectedTierValue >= enchantPreviewMinTier &&
       listEnchantView > 0
         ? listEnchantView
-        : 0
+        : 0,
+    [supportsPreviewEnchant, selectedTierValue, enchantPreviewMinTier, listEnchantView]
+  )
+
+  const rows = useMemo(() => {
+    if (!selected) return []
     const hasExplicitEnchantResources = selected.resources.some((r) => (r.enchantmentLevel ?? 0) > 0)
     const useExplicitEnchantOnly = kind === 'offhands' && hasExplicitEnchantResources
 
@@ -1211,62 +1243,58 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
           return level === 0
         })
 
-    const displayResources =
-      applicableResources.length > MAX_RESOURCE_ROWS && craftEnchant > 0
-        ? (() => {
-            const selected = new Set<string>()
-            const picked: typeof applicableResources = []
-            const keyOf = (r: (typeof applicableResources)[number]) =>
-              `${r.uniqueName}::${r.count}::${r.enchantmentLevel ?? 0}`
-
-            // Keep enchant-specific mats visible (e.g. Arcane Extract for .1/.2/.3 potions).
-            for (const r of applicableResources) {
-              if ((r.enchantmentLevel ?? 0) !== craftEnchant) continue
-              const key = keyOf(r)
-              if (selected.has(key)) continue
-              selected.add(key)
-              picked.push(r)
-              if (picked.length >= MAX_RESOURCE_ROWS) return picked
-            }
-
-            // Fill remaining slots with the normal recipe order.
-            for (const r of applicableResources) {
-              const key = keyOf(r)
-              if (selected.has(key)) continue
-              selected.add(key)
-              picked.push(r)
-              if (picked.length >= MAX_RESOURCE_ROWS) break
-            }
-
-            return picked
-          })()
-        : applicableResources.slice(0, MAX_RESOURCE_ROWS)
-
-    return displayResources
-      .map((r) => {
-        const resourceId = isRefiningSection
-          ? withRefinedEnchant(r.uniqueName, r.enchantmentLevel ?? 0)
-          : withRefinedEnchant(r.uniqueName, craftEnchant)
-        const requiredQty = r.count * craftQty
-        const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
-        const unit = unitPrices[resourceId] ?? 0
-        const line = needBuy * unit
-        return { ...r, uniqueName: resourceId, requiredQty, needBuy, unit, line }
-      })
+    return applicableResources.map((r) => {
+      const resourceId = isRefiningSection
+        ? withRefinedEnchant(r.uniqueName, r.enchantmentLevel ?? 0)
+        : withRefinedEnchant(r.uniqueName, craftEnchant)
+      const requiredQty = r.count * craftQty
+      const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
+      const unit = unitPrices[resourceId] ?? 0
+      const line = needBuy * unit
+      return { ...r, uniqueName: resourceId, requiredQty, needBuy, unit, line }
+    })
   }, [
     selected,
-    selectedTierValue,
     owned,
     unitPrices,
-    supportsPreviewEnchant,
-    enchantPreviewMinTier,
-    listEnchantView,
+    craftEnchant,
     craftQty,
     isRefiningSection,
+    kind,
   ])
+
+  const displayRows = useMemo(() => {
+    if (rows.length <= MAX_RESOURCE_ROWS) return rows
+    if (craftEnchant <= 0) return rows.slice(0, MAX_RESOURCE_ROWS)
+
+    const selected = new Set<string>()
+    const picked: typeof rows = []
+    const keyOf = (r: (typeof rows)[number]) => `${r.uniqueName}::${r.requiredQty}`
+
+    // Keep enchant-specific rows visible first (e.g. Arcane Extract for .1/.2/.3 potions).
+    for (const r of rows) {
+      if ((r.enchantmentLevel ?? 0) !== craftEnchant) continue
+      const key = keyOf(r)
+      if (selected.has(key)) continue
+      selected.add(key)
+      picked.push(r)
+      if (picked.length >= MAX_RESOURCE_ROWS) return picked
+    }
+
+    for (const r of rows) {
+      const key = keyOf(r)
+      if (selected.has(key)) continue
+      selected.add(key)
+      picked.push(r)
+      if (picked.length >= MAX_RESOURCE_ROWS) break
+    }
+
+    return picked
+  }, [rows, craftEnchant])
 
   useEffect(() => {
     // Reset section-local filters when switching to another craft section.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTierFilter(null)
     setListEnchantView(0)
     setSelectedId(null)
@@ -1281,6 +1309,11 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   const fetchMarketPrices = async (city: PriceCity) => {
     if (!selected) return
+    marketFetchAbortRef.current?.abort()
+    const controller = new AbortController()
+    marketFetchAbortRef.current = controller
+    const requestSeq = marketFetchSeqRef.current + 1
+    marketFetchSeqRef.current = requestSeq
     const ids = [...new Set(rows.map((r) => r.uniqueName).filter(Boolean))]
     if (ids.length === 0) return
     setShowPriceFetchFeedback(true)
@@ -1288,25 +1321,41 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     setPriceFetchStatus('loading')
     setPriceFetchMsg('Fetching prices…')
     try {
-      const prices = await fetchPricesForItems(region, ids, city)
+      const prices = await fetchPricesForItems(region, ids, city, controller.signal)
+      if (requestSeq !== marketFetchSeqRef.current) return
       setUnitPrices((prev) => {
         const next = { ...prev }
         for (const [id, silver] of Object.entries(prices)) {
-          if (silver > 0) next[id] = silver
+          const safeSilver = clampNonNegativeInt(silver, MAX_UNIT_PRICE)
+          next[id] = safeSilver
         }
         saveStoredPrices(next)
         return next
       })
       setPriceFetchStatus('ok')
       const source = city === 'lowest' ? 'lowest price' : city
-      setPriceFetchMsg(`Updated ${Object.values(prices).filter((n) => n > 0).length} prices (${source})`)
+      const updated = Object.values(prices).filter((n) => Number.isFinite(n)).length
+      setPriceFetchMsg(`Updated ${updated} prices (${source})`)
     } catch (e) {
+      if (controller.signal.aborted) return
+      if (requestSeq !== marketFetchSeqRef.current) return
       setPriceFetchStatus('err')
       setPriceFetchMsg(e instanceof Error ? e.message : 'Fetch failed')
+    } finally {
+      if (marketFetchAbortRef.current === controller) {
+        marketFetchAbortRef.current = null
+      }
     }
   }
 
   useEffect(() => {
+    return () => {
+      marketFetchAbortRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowPriceFetchFeedback(false)
     setPriceFetchStatus('idle')
     setPriceFetchMsg('')
@@ -1316,6 +1365,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     if (!isBrewingKind(kind)) return
     if (!recipeStorageKey) return
     // Switching to a different potion should always start from default card controls.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCraftQty(1)
     setRegion('asia')
     setPriceCity('lowest')
@@ -1540,7 +1590,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                 </span>
               )}
               <div className="search-meta__right">
-                <p className="search-hint">Filters stack</p>
+                <p className="search-hint">Search, filters, and selection stack</p>
                 <button
                   type="button"
                   className="search-clear-filters"
@@ -1554,7 +1604,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                   }}
                   disabled={!hasActiveListFilters}
                 >
-                  Clear Filters
+                  Reset View
                 </button>
               </div>
             </div>
@@ -1857,8 +1907,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {selected && rows.length > 0 ? (
-                    rows.map((r) => (
+                  {selected && displayRows.length > 0 ? (
+                    displayRows.map((r) => (
                     <tr key={`${r.uniqueName}-${r.enchantmentLevel ?? 0}`}>
                       <ItemCell
                         uniqueName={r.uniqueName}
@@ -1871,7 +1921,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                             type="button"
                             className="input-stepper__btn"
                             aria-label={`Decrease owned amount for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
-                            onClick={() => setOwnedQty(r.uniqueName, Math.max(0, (owned[r.uniqueName] ?? 0) - 1))}
+                            onClick={() => setOwnedQty(r.uniqueName, (owned[r.uniqueName] ?? 0) - 1)}
                           >
                             -
                           </button>
@@ -1884,7 +1934,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                             onChange={(e) =>
                               setOwnedQty(
                                 r.uniqueName,
-                                e.target.value === '' ? 0 : Number(e.target.value)
+                                e.target.value === '' ? 0 : clampNonNegativeInt(Number(e.target.value), MAX_RESOURCE_QTY)
                               )
                             }
                           />
@@ -1905,7 +1955,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                             type="button"
                             className="input-stepper__btn"
                             aria-label={`Decrease price for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
-                            onClick={() => setUnitPrice(r.uniqueName, Math.max(0, (r.unit || 0) - 1))}
+                            onClick={() => setUnitPrice(r.uniqueName, (r.unit || 0) - 1)}
                           >
                             -
                           </button>
@@ -1918,7 +1968,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                             onChange={(e) =>
                               setUnitPrice(
                                 r.uniqueName,
-                                e.target.value === '' ? 0 : Number(e.target.value)
+                                e.target.value === '' ? 0 : clampNonNegativeInt(Number(e.target.value), MAX_UNIT_PRICE)
                               )
                             }
                           />
@@ -2004,7 +2054,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                   required
                   className="input"
                   value={usageFee}
-                  onChange={(e) => setUsageFee(Math.max(0, Number(e.target.value || 0)))}
+                  onChange={(e) => setUsageFee(clampNonNegativeInt(Number(e.target.value || 0), MAX_USAGE_FEE))}
                 />
                 <small className="setup-field__hint">Per 100 nutrition (default: 1000).</small>
               </label>
@@ -2018,7 +2068,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                   step={0.01}
                   className="input"
                   value={rrr}
-                  onChange={(e) => setRrr(Math.max(0, Math.min(100, Number(e.target.value || 0))))}
+                  onChange={(e) => setRrr(clampNonNegativeFloat(Number(e.target.value || 0), MAX_RRR))}
                 />
                 <small className="setup-field__hint">Expected return rate, from 0 to 100.</small>
               </label>

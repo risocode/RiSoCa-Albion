@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { localItemIconUrl, type LocalIconFolder } from './itemIconUrl'
 
@@ -30,18 +30,13 @@ export function ItemIcon({
   fetchPriority,
   showPreview = true,
 }: ItemIconProps) {
-  const [sourceMode, setSourceMode] = useState<'local' | 'broken'>('local')
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null)
   const [hovered, setHovered] = useState(false)
   const [previewPos, setPreviewPos] = useState({ top: 0, left: 0 })
   const hostRef = useRef<HTMLSpanElement | null>(null)
   const previewWidth = Math.max(144, size * 2 + 24)
   const previewHeight = Math.max(132, size * 2 + 34)
   const src = localItemIconUrl(localFolder, uniqueName, enchantmentLevel)
-
-  useEffect(() => {
-    // Re-evaluate source from local cache whenever icon identity changes.
-    setSourceMode('local')
-  }, [localFolder, uniqueName, enchantmentLevel])
 
   useLayoutEffect(() => {
     if (!hovered) return
@@ -74,7 +69,7 @@ export function ItemIcon({
     }
   }, [hovered, previewHeight, previewWidth])
 
-  if (sourceMode === 'broken') {
+  if (brokenSrc === src) {
     return (
       <span
         className={`item-icon item-icon--fallback ${className}`.trim()}
@@ -104,7 +99,7 @@ export function ItemIcon({
         loading={loading}
         decoding="async"
         {...(fetchPriority ? { fetchPriority } : {})}
-        onError={() => setSourceMode('broken')}
+        onError={() => setBrokenSrc(src)}
       />
       {showPreview && hovered
         ? createPortal(

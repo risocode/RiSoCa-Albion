@@ -154,9 +154,11 @@ export function BattleDetailsPage({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
+    let stale = false
     const cached = getCachedEventDetails(region, eventId)
     if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(cached)
       setLoading(false)
     } else {
@@ -165,21 +167,23 @@ export function BattleDetailsPage({
     setError(null)
     ;(async () => {
       try {
-        const details = await fetchEventDetails(region, eventId)
-        if (!cancelled) {
+        const details = await fetchEventDetails(region, eventId, controller.signal)
+        if (!stale) {
           setData(details)
         }
       } catch (e) {
-        if (!cancelled) {
-          setData(null)
+        if (controller.signal.aborted || stale) return
+        if (!stale) {
+          // Keep previously cached/shown data visible on refresh failures.
           setError(e instanceof Error ? e.message : 'Failed to load battle details.')
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!stale) setLoading(false)
       }
     })()
     return () => {
-      cancelled = true
+      stale = true
+      controller.abort()
     }
   }, [region, eventId])
 
@@ -202,7 +206,7 @@ export function BattleDetailsPage({
     )
   }
 
-  if (error || !data) {
+  if (!data) {
     const errorBody = (
       <section className={embedded ? 'battle-details__page battle-details__page--embedded' : 'panel battle-details__page'}>
         <p className="error-text">{error ?? 'No battle data found.'}</p>
@@ -225,6 +229,7 @@ export function BattleDetailsPage({
   const victim = data.Victim
   const content = (
     <section className={embedded ? 'battle-details__page battle-details__page--embedded' : 'panel battle-details__page'}>
+        {error ? <p className="error-text">{error}</p> : null}
         <div className="battle-details__head">
           <div className="battle-details__versus">
             <div className="battle-details__fighter">

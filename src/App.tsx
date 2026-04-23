@@ -58,6 +58,7 @@ function MainPanel({ section }: { section: WorkshopSection }) {
 }
 
 function App() {
+  const [section, setSection] = useState<WorkshopSection>('weapons')
   const params = new URLSearchParams(window.location.search)
   const battleEvent = params.get('battleEvent')
   const battleRegionRaw = params.get('battleRegion')
@@ -68,8 +69,6 @@ function App() {
   if (battleEvent && battleEvent.trim().length > 0) {
     return <BattleDetailsPage region={battleRegion} eventId={battleEvent.trim()} />
   }
-
-  const [section, setSection] = useState<WorkshopSection>('weapons')
 
   return (
     <div className="app-layout">
