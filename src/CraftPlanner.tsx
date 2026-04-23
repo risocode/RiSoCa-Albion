@@ -583,6 +583,17 @@ function isCookingKind(kind: CraftPlannerKind): kind is Extract<CraftPlannerKind
   return kind.startsWith('cooking_')
 }
 
+function outputPerRecipeForKind(kind: CraftPlannerKind): number {
+  if (isCookingKind(kind)) return 10
+  if (isBrewingKind(kind)) return 5
+  if (kind.startsWith('refining_')) return 1
+  return 1
+}
+
+function defaultCraftQtyForKind(kind: CraftPlannerKind): number {
+  return outputPerRecipeForKind(kind)
+}
+
 function itemTierFamilyKey(uniqueName: string): string {
   return uniqueName
     .replace(/^T\d+_/, '')
@@ -702,9 +713,9 @@ function saveStoredPriceCity(city: PriceCity) {
   localStorage.setItem(LS_PRICE_CITY, city)
 }
 
-function clampCraftQty(n: number): number {
-  if (!Number.isFinite(n)) return 1
-  return Math.max(1, Math.min(MAX_CRAFT_QTY, Math.floor(n)))
+function clampCraftQtyWithMin(n: number, min: number): number {
+  if (!Number.isFinite(n)) return min
+  return Math.max(min, Math.min(MAX_CRAFT_QTY, Math.floor(n)))
 }
 
 function clampNonNegativeInt(n: number, max: number): number {
@@ -922,7 +933,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const priceCityPickerRef = useRef<HTMLDivElement | null>(null)
   const marketFetchSeqRef = useRef(0)
   const marketFetchAbortRef = useRef<AbortController | null>(null)
-  const [craftQty, setCraftQty] = useState(1)
+  const [craftQty, setCraftQty] = useState(() => defaultCraftQtyForKind(kind))
   const [usageFee, setUsageFee] = useState(initialSetup.usageFee)
   const [rrr, setRrr] = useState(initialSetup.rrr)
   /** `null` = all tiers. Toggle same tier again to clear. */
@@ -1300,13 +1311,15 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     setSelectedId(null)
     setRefiningVariantIndex(0)
     setShopSub1Filter('')
+    setCraftQty(defaultCraftQtyForKind(kind))
   }, [kind])
 
   const matsTotal = rows.reduce((s, r) => s + r.line, 0)
   const baseStationSilver = selected?.stationSilver ?? 0
   const stationSilver = baseStationSilver * (usageFee / 1000) * craftQty
   const grandTotal = matsTotal + stationSilver
-
+  const craftQtyStep = outputPerRecipeForKind(kind)
+  const craftQtyMin = craftQtyStep
   const fetchMarketPrices = async (city: PriceCity) => {
     if (!selected) return
     marketFetchAbortRef.current?.abort()
@@ -1366,7 +1379,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     if (!recipeStorageKey) return
     // Switching to a different potion should always start from default card controls.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCraftQty(1)
+    setCraftQty(defaultCraftQtyForKind(kind))
     setRegion('asia')
     setPriceCity('lowest')
     setShowPriceCityPicker(false)
@@ -1790,27 +1803,28 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                         type="button"
                         className="input-stepper__btn"
                         aria-label="Decrease craft quantity"
-                        onClick={() => setCraftQty((v) => clampCraftQty(v - 1))}
+                        onClick={() => setCraftQty((v) => clampCraftQtyWithMin(v - craftQtyStep, craftQtyMin))}
+                        disabled={craftQty <= craftQtyMin}
                       >
                         -
                       </button>
                       <input
                         type="number"
-                        min={1}
+                        min={craftQtyMin}
                         max={MAX_CRAFT_QTY}
-                        step={1}
+                        step={craftQtyStep}
                         className="input input--market input--qty input-stepper__input"
                         value={craftQty}
                         onChange={(e) => {
-                          const next = Number(e.target.value || 1)
-                          setCraftQty(clampCraftQty(next))
+                          const next = Number(e.target.value || craftQtyMin)
+                          setCraftQty(clampCraftQtyWithMin(next, craftQtyMin))
                         }}
                       />
                       <button
                         type="button"
                         className="input-stepper__btn"
                         aria-label="Increase craft quantity"
-                        onClick={() => setCraftQty((v) => clampCraftQty(v + 1))}
+                        onClick={() => setCraftQty((v) => clampCraftQtyWithMin(v + craftQtyStep, craftQtyMin))}
                       >
                         +
                       </button>
