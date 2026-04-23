@@ -16,7 +16,10 @@ type NavGroup = {
   items: NavItem[]
 }
 
-const TOP_LEVEL_ITEMS: NavItem[] = [{ id: 'player_lookup', label: 'Player Look-Up', icon: '👤' }]
+const TOP_LEVEL_ITEMS: NavItem[] = [
+  { id: 'player_lookup', label: 'Player Look-Up', icon: '👤' },
+  { id: 'black_market_flip', label: 'Black Market Flip', icon: '💱' },
+]
 
 const GROUPS: NavGroup[] = [
   {

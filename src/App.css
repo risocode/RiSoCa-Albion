@@ -1818,6 +1818,110 @@
   }
 }
 
+.black-flip__head {
+  margin-bottom: 0.85rem;
+}
+
+.black-flip__subtitle {
+  margin-top: 0.25rem;
+}
+
+.black-flip__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.7rem;
+}
+
+.black-flip__search {
+  grid-column: span 2;
+}
+
+.black-flip__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  margin-bottom: 0.45rem;
+}
+
+.black-flip__category-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.black-flip__table th,
+.black-flip__table td {
+  padding: 0.22rem 0.24rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.black-flip__table th:nth-child(1),
+.black-flip__table td:nth-child(1) {
+  width: 24%;
+}
+
+.black-flip__table th:nth-child(2),
+.black-flip__table td:nth-child(2) {
+  width: 12%;
+}
+
+.black-flip__table th:nth-child(3),
+.black-flip__table td:nth-child(3) {
+  width: 12%;
+}
+
+.black-flip__table th:nth-child(4),
+.black-flip__table td:nth-child(4) {
+  width: 12%;
+}
+
+.black-flip__table th:nth-child(5),
+.black-flip__table td:nth-child(5) {
+  width: 16%;
+}
+
+.black-flip__table th:nth-child(6),
+.black-flip__table td:nth-child(6) {
+  width: 12%;
+}
+
+.black-flip__table th:nth-child(7),
+.black-flip__table td:nth-child(7) {
+  width: 12%;
+}
+
+.black-flip__table th:nth-child(n + 2),
+.black-flip__table td:nth-child(n + 2) {
+  text-align: center;
+}
+
+.black-flip__table .resource-cell {
+  min-width: 0;
+  gap: 0.28rem;
+}
+
+.black-flip__table .item-display {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.black-flip__pos {
+  color: #85d69b;
+  font-weight: 600;
+}
+
+.black-flip__neg {
+  color: #f08b8b;
+  font-weight: 600;
+}
+
 .resources-summary {
   margin-top: 0.3rem;
   border-top: 1px solid var(--border);
@@ -3093,6 +3197,10 @@
 }
 
 @media (max-width: 640px) {
+  .black-flip__search {
+    grid-column: span 1;
+  }
+
   .player-lookup__controls {
     align-items: stretch;
   }

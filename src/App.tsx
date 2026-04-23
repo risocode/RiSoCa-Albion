@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AppSidebar } from './AppSidebar'
 import { BattleDetailsPage } from './BattleDetailsPage'
+import { BlackMarketFlip } from './BlackMarketFlip'
 import { CraftPlanner } from './CraftPlanner'
 import { PlayerLookupPanel } from './PlayerLookupPanel'
 import { PlaceholderSection } from './PlaceholderSection'
@@ -50,6 +51,9 @@ function isCraftSection(s: WorkshopSection): s is CraftPlannerKind {
 function MainPanel({ section }: { section: WorkshopSection }) {
   if (section === 'player_lookup') {
     return <PlayerLookupPanel />
+  }
+  if (section === 'black_market_flip') {
+    return <BlackMarketFlip />
   }
   if (isCraftSection(section)) {
     return <CraftPlanner kind={section} />

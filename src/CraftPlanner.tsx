@@ -901,7 +901,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const isRefiningSection = kind.startsWith('refining_')
   const supportsPreviewEnchantNonRefining =
     isArmorCraftKind(kind) || isCookingKind(kind) || isBrewingKind(kind)
-  const enchantPreviewMinTier = isCookingKind(kind) ? 3 : 4
+  const enchantPreviewMinTier = isCookingKind(kind) || isBrewingKind(kind) ? 3 : 4
   const outputLocalFolder: LocalIconFolder = isArmorCraftKind(kind)
     ? kind
     : isBrewingKind(kind)
@@ -1055,7 +1055,10 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   ])
 
   const listIconEnchant =
-    supportsPreviewEnchant && tierFilter != null && tierFilter >= 4 && listEnchantView > 0
+    supportsPreviewEnchant &&
+    tierFilter != null &&
+    tierFilter >= enchantPreviewMinTier &&
+    listEnchantView > 0
       ? listEnchantView
       : undefined
 

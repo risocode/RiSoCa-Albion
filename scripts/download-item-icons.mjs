@@ -190,8 +190,12 @@ function collectDownloadJobs(payloadByCategory) {
       const main = buildItemRenderId(recipe.uniqueName)
       addJob(outputFolder, main)
 
-      // UI supports enchant preview chips at T4+ (.1-.4)
-      if (outputFolder !== 'resources' && Number(recipe.tier) >= 4) {
+      // UI supports enchant preview chips at:
+      // - T3+ for alchemist / cooking (.1-.3)
+      // - T4+ for armor / weapons / offhands (.1-.4)
+      const minEnchantTier =
+        outputFolder === 'alchemist' || outputFolder === 'cooking' ? 3 : 4
+      if (outputFolder !== 'resources' && Number(recipe.tier) >= minEnchantTier) {
         const maxEnchant = outputFolder === 'alchemist' || outputFolder === 'cooking' ? 3 : 4
         for (let e = 1; e <= maxEnchant; e += 1) {
           const ench = buildItemRenderId(recipe.uniqueName, e)
