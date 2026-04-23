@@ -3,7 +3,7 @@
  *
  * Usage:
  *   node scripts/download-item-icons.mjs
- *   node scripts/download-item-icons.mjs --force --size=128 --quality=1
+ *   node scripts/download-item-icons.mjs --force --size=128 --quality=5
  *   node scripts/download-item-icons.mjs --limit=100
  */
 import https from 'node:https'
@@ -19,6 +19,7 @@ const RENDER_BASE = 'https://render.albiononline.com/v1/item'
 
 const DATA_FILES = {
   weapons: 'weapons_recipes.json',
+  offhands: 'offhands_recipes.json',
   head: 'head_recipes.json',
   chest: 'chest_recipes.json',
   boots: 'boots_recipes.json',
@@ -52,7 +53,7 @@ const DATA_FILES = {
   cooking_grilledfish: 'cooking_grilledfish_recipes.json',
 }
 
-const FOLDERS = ['weapons', 'head', 'chest', 'boots', 'resources', 'alchemist', 'cooking']
+const FOLDERS = ['weapons', 'offhands', 'head', 'chest', 'boots', 'resources', 'alchemist', 'cooking']
 const EXTRA_RESOURCE_ICON_IDS = [
   'T4_CLOTH',
   'T4_LEATHER',
@@ -79,7 +80,7 @@ const EXTRA_RESOURCE_ICON_IDS = [
 function parseArgs(argv) {
   const out = {
     size: 128,
-    quality: 1,
+    quality: 5,
     force: false,
     concurrency: 10,
     limit: undefined,
@@ -87,18 +88,23 @@ function parseArgs(argv) {
   for (const arg of argv) {
     if (arg === '--force') out.force = true
     else if (arg.startsWith('--size=')) out.size = Number(arg.split('=')[1] ?? 128)
-    else if (arg.startsWith('--quality=')) out.quality = Number(arg.split('=')[1] ?? 1)
+    else if (arg.startsWith('--quality=')) out.quality = Number(arg.split('=')[1] ?? 5)
     else if (arg.startsWith('--concurrency=')) out.concurrency = Number(arg.split('=')[1] ?? 10)
     else if (arg.startsWith('--limit=')) out.limit = Number(arg.split('=')[1])
   }
   if (!Number.isFinite(out.size) || out.size < 32) out.size = 128
-  if (!Number.isFinite(out.quality) || out.quality < 1 || out.quality > 5) out.quality = 1
+  if (!Number.isFinite(out.quality) || out.quality < 1 || out.quality > 5) out.quality = 5
   if (!Number.isFinite(out.concurrency) || out.concurrency < 1) out.concurrency = 10
   if (out.limit != null && (!Number.isFinite(out.limit) || out.limit < 1)) out.limit = undefined
   return out
 }
 
+function stripCraftRecipeVariantSuffix(uniqueName) {
+  return typeof uniqueName === 'string' ? uniqueName.replace(/__ALT\d+$/i, '') : uniqueName
+}
+
 function buildItemRenderId(uniqueName, enchantmentLevel) {
+  uniqueName = stripCraftRecipeVariantSuffix(uniqueName)
   if (typeof uniqueName !== 'string' || uniqueName.length === 0) return null
   if (uniqueName.includes('@')) return uniqueName
   if (enchantmentLevel != null && Number(enchantmentLevel) > 0) {
@@ -154,7 +160,13 @@ async function loadRecipePayload(fileName) {
 function collectDownloadJobs(payloadByCategory) {
   const jobsByKey = new Map()
   const outputFolderForCategory = (category) => {
-    if (category === 'weapons' || category === 'head' || category === 'chest' || category === 'boots') {
+    if (
+      category === 'weapons' ||
+      category === 'offhands' ||
+      category === 'head' ||
+      category === 'chest' ||
+      category === 'boots'
+    ) {
       return category
     }
     if (category.startsWith('brewing_')) return 'alchemist'

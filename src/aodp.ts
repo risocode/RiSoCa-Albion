@@ -12,16 +12,26 @@ const LOCAL_PRICE_FILE: Record<AodpRegion, string> = {
   asia: '/data/prices/asia.json',
 }
 
-/** Cheapest listed sell order (quality 1), excluding Black Market when possible. */
-export function pickCheapestSellQ1(rows: AodpPriceRow[]): number {
+export type PriceCity =
+  | 'lowest'
+  | 'Bridgewatch'
+  | 'Martlock'
+  | 'Thetford'
+  | 'Fort Sterling'
+  | 'Lymhurst'
+  | 'Caerleon'
+  | 'Brecilien'
+  | 'Black Market'
+
+/** Cheapest listed sell order (quality 1), optionally scoped to one city. */
+function pickSellQ1(rows: AodpPriceRow[], city: PriceCity): number {
   const q1 = rows.filter((r) => r.quality === 1 && r.sell_price_min > 0)
-  const noBm = q1.filter((r) => r.city !== 'Black Market')
-  const pool = noBm.length > 0 ? noBm : q1
+  const pool = city === 'lowest' ? q1 : q1.filter((r) => r.city === city)
   if (pool.length === 0) return 0
   return Math.min(...pool.map((r) => r.sell_price_min))
 }
 
-async function loadLocalPriceMap(region: AodpRegion): Promise<Record<string, number>> {
+async function loadLocalPriceMap(region: AodpRegion, city: PriceCity): Promise<Record<string, number>> {
   const res = await fetch(LOCAL_PRICE_FILE[region])
   if (!res.ok) {
     throw new Error(`local price file ${res.status}`)
@@ -32,6 +42,8 @@ async function loadLocalPriceMap(region: AodpRegion): Promise<Record<string, num
 
   // Support object map format: { "T4_PLANKS": 123, ... }
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    // Object maps only represent one precomputed value per item (lowest price).
+    if (city !== 'lowest') return out
     for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
       const n = Number(value)
       if (Number.isFinite(n) && n >= 0) out[id] = n
@@ -49,14 +61,15 @@ async function loadLocalPriceMap(region: AodpRegion): Promise<Record<string, num
     byItem.get(row.item_id)!.push(row)
   }
   for (const [id, itemRows] of byItem.entries()) {
-    out[id] = pickCheapestSellQ1(itemRows)
+    out[id] = pickSellQ1(itemRows, city)
   }
   return out
 }
 
 export async function fetchPricesForItems(
   region: AodpRegion,
-  itemIds: string[]
+  itemIds: string[],
+  city: PriceCity = 'lowest'
 ): Promise<Record<string, number>> {
   const unique = [...new Set(itemIds)].filter(Boolean)
   const out: Record<string, number> = {}
@@ -66,7 +79,7 @@ export async function fetchPricesForItems(
   // Only missing IDs fall back to live API.
   let pending = unique
   try {
-    const local = await loadLocalPriceMap(region)
+    const local = await loadLocalPriceMap(region, city)
     for (const id of unique) {
       if (Object.prototype.hasOwnProperty.call(local, id)) {
         out[id] = local[id]
@@ -99,7 +112,7 @@ export async function fetchPricesForItems(
     }
     for (const id of chunk) {
       const rows = byItem.get(id) ?? []
-      out[id] = pickCheapestSellQ1(rows)
+      out[id] = pickSellQ1(rows, city)
     }
   }
 

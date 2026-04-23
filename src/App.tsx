@@ -9,6 +9,7 @@ import './App.css'
 
 const CRAFT_SECTIONS: CraftPlannerKind[] = [
   'weapons',
+  'offhands',
   'head',
   'chest',
   'boots',

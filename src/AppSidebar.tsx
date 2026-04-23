@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ItemIcon } from './ItemIcon'
 import type { WorkshopSection } from './types'
 
@@ -6,8 +6,8 @@ type NavItem = {
   id: WorkshopSection
   label: string
   icon?: string
-  iconSrc?: string
   iconItemId?: string
+  iconEnchantLevel?: number
 }
 
 type NavGroup = {
@@ -23,21 +23,25 @@ const GROUPS: NavGroup[] = [
     id: 'crafting',
     label: 'Crafting',
     items: [
-      { id: 'weapons', label: 'Weapon', icon: '⚔', iconSrc: '/weapon.png' },
-      { id: 'head', label: 'Head', icon: '⛑', iconSrc: '/head.png' },
-      { id: 'chest', label: 'Chest', icon: '🦺', iconSrc: '/chests.png' },
-      { id: 'boots', label: 'Boots', icon: '👢', iconSrc: '/boots.png' },
+      { id: 'weapons', label: 'Weapon', iconItemId: 'T8_MAIN_SWORD', iconEnchantLevel: 4 },
+      { id: 'chest', label: 'Chest Armor', iconItemId: 'T8_ARMOR_PLATE_SET1', iconEnchantLevel: 4 },
+      { id: 'head', label: 'Head Armor', iconItemId: 'T8_HEAD_PLATE_SET1', iconEnchantLevel: 4 },
+      { id: 'boots', label: 'Foot Armor', iconItemId: 'T8_SHOES_PLATE_SET1', iconEnchantLevel: 4 },
+      { id: 'offhands', label: 'Off-Hands', iconItemId: 'T8_OFF_SHIELD', iconEnchantLevel: 4 },
     ],
   },
   {
-    id: 'refining',
-    label: 'Refining',
+    id: 'cooking',
+    label: 'Cooking',
     items: [
-      { id: 'refining_cloth', label: 'Cloth', iconItemId: 'T8_CLOTH' },
-      { id: 'refining_leather', label: 'Leather', iconItemId: 'T8_LEATHER' },
-      { id: 'refining_metal_bars', label: 'Metal Bars', iconItemId: 'T8_METALBAR' },
-      { id: 'refining_stone_block', label: 'Stone Block', iconItemId: 'T8_STONEBLOCK' },
-      { id: 'refining_planks', label: 'Planks', iconItemId: 'T8_PLANKS' },
+      { id: 'cooking_stews', label: 'Stews', iconItemId: 'T8_MEAL_STEW' },
+      { id: 'cooking_soups', label: 'Soups', iconItemId: 'T5_MEAL_SOUP' },
+      { id: 'cooking_salads', label: 'Salads', iconItemId: 'T6_MEAL_SALAD' },
+      { id: 'cooking_sandwiches', label: 'Sandwiches', iconItemId: 'T8_MEAL_SANDWICH' },
+      { id: 'cooking_pies', label: 'Pies', iconItemId: 'T7_MEAL_PIE' },
+      { id: 'cooking_omelettes', label: 'Omelettes', iconItemId: 'T7_MEAL_OMELETTE' },
+      { id: 'cooking_roasts', label: 'Roasts', iconItemId: 'T7_MEAL_ROAST' },
+      { id: 'cooking_grilledfish', label: 'Grilled Fish', iconItemId: 'T1_MEAL_GRILLEDFISH' },
     ],
   },
   {
@@ -62,17 +66,14 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: 'cooking',
-    label: 'Cooking',
+    id: 'refining',
+    label: 'Refining',
     items: [
-      { id: 'cooking_stews', label: 'Stews', iconItemId: 'T8_MEAL_STEW' },
-      { id: 'cooking_soups', label: 'Soups', iconItemId: 'T5_MEAL_SOUP' },
-      { id: 'cooking_salads', label: 'Salads', iconItemId: 'T6_MEAL_SALAD' },
-      { id: 'cooking_sandwiches', label: 'Sandwiches', iconItemId: 'T8_MEAL_SANDWICH' },
-      { id: 'cooking_pies', label: 'Pies', iconItemId: 'T7_MEAL_PIE' },
-      { id: 'cooking_omelettes', label: 'Omelettes', iconItemId: 'T7_MEAL_OMELETTE' },
-      { id: 'cooking_roasts', label: 'Roasts', iconItemId: 'T7_MEAL_ROAST' },
-      { id: 'cooking_grilledfish', label: 'Grilled Fish', iconItemId: 'T1_MEAL_GRILLEDFISH' },
+      { id: 'refining_cloth', label: 'Cloth', iconItemId: 'T8_CLOTH' },
+      { id: 'refining_leather', label: 'Leather', iconItemId: 'T8_LEATHER' },
+      { id: 'refining_metal_bars', label: 'Metal Bars', iconItemId: 'T8_METALBAR' },
+      { id: 'refining_stone_block', label: 'Stone Block', iconItemId: 'T8_STONEBLOCK' },
+      { id: 'refining_planks', label: 'Planks', iconItemId: 'T8_PLANKS' },
     ],
   },
 ]
@@ -85,6 +86,28 @@ type AppSidebarProps = {
 export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
   const gradId = useId().replace(/:/g, '')
   const [openGroup, setOpenGroup] = useState<NavGroup['id'] | null>(null)
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const containing = GROUPS.find((g) => g.items.some((i) => i.id === activeSection))
+    if (containing) {
+      setOpenGroup((prev) => (prev === containing.id ? prev : containing.id))
+    }
+  }, [activeSection])
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      const host = profileMenuRef.current
+      if (!host) return
+      if (!host.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    return () => window.removeEventListener('mousedown', onPointerDown)
+  }, [isProfileMenuOpen])
 
   return (
     <aside className="app-sidebar" aria-label="Application menu">
@@ -164,26 +187,32 @@ export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
                       onClick={() => onNavigate(item.id)}
                     >
                       <span className="sidebar-nav__icon" aria-hidden>
-                        {item.iconSrc ? (
-                          <img
-                            src={item.iconSrc}
-                            alt=""
-                            className="sidebar-nav__icon-img"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        ) : item.iconItemId ? (
+                        {item.iconItemId ? (
                           <ItemIcon
                             uniqueName={item.iconItemId}
+                            enchantmentLevel={item.iconEnchantLevel}
+                            hoverLabel={item.label}
                             localFolder={
                               group.id === 'brewing'
                                 ? 'alchemist'
                                 : group.id === 'cooking'
                                   ? 'cooking'
-                                  : 'resources'
+                                  : item.id === 'weapons'
+                                    ? 'weapons'
+                                    : item.id === 'head'
+                                      ? 'head'
+                                      : item.id === 'chest'
+                                        ? 'chest'
+                                        : item.id === 'boots'
+                                          ? 'boots'
+                                  : item.id === 'offhands'
+                                    ? 'offhands'
+                                    : 'resources'
                             }
                             size={20}
-                            className="sidebar-nav__icon-item"
+                            className={`sidebar-nav__icon-item${
+                              group.id === 'crafting' ? ' sidebar-nav__icon-item--plain' : ''
+                            }`}
                             alt=""
                             loading="lazy"
                           />
@@ -201,9 +230,53 @@ export function AppSidebar({ activeSection, onNavigate }: AppSidebarProps) {
         })}
       </nav>
 
-      <div className="sidebar-footer">
-        <span className="sidebar-footer__line">Unofficial fan tool</span>
-        <span className="sidebar-footer__line">Recipes from ao-bin-dumps</span>
+      <div ref={profileMenuRef} className="sidebar-profile" aria-label="User profile menu">
+        <button
+          type="button"
+          className={`sidebar-profile__trigger${isProfileMenuOpen ? ' is-open' : ''}`}
+          aria-haspopup="menu"
+          aria-expanded={isProfileMenuOpen}
+          onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+        >
+          <span className="sidebar-profile__avatar" aria-hidden>
+            👤
+          </span>
+          <span className="sidebar-profile__trigger-label">Profile</span>
+          <span className="sidebar-profile__trigger-caret" aria-hidden>
+            {isProfileMenuOpen ? '▴' : '▾'}
+          </span>
+        </button>
+        {isProfileMenuOpen ? (
+          <div className="sidebar-profile__menu" role="menu" aria-label="Profile actions">
+            <button
+              type="button"
+              className="sidebar-profile__menu-item"
+              role="menuitem"
+              onClick={() => {
+                onNavigate('player_lookup')
+                setIsProfileMenuOpen(false)
+              }}
+            >
+              Profile
+            </button>
+            <button
+              type="button"
+              className="sidebar-profile__menu-item"
+              role="menuitem"
+              onClick={() => setIsProfileMenuOpen(false)}
+            >
+              Settings
+            </button>
+            <button
+              type="button"
+              className="sidebar-profile__menu-item sidebar-profile__menu-item--danger"
+              role="menuitem"
+              onClick={() => setIsProfileMenuOpen(false)}
+            >
+              Logout
+            </button>
+          </div>
+        ) : null}
       </div>
     </aside>
   )

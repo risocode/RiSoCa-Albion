@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { fetchPricesForItems } from './aodp'
+import { fetchPricesForItems, type PriceCity } from './aodp'
 import {
   formatItemDisplayName,
   itemMatchesSearchQuery,
@@ -12,6 +12,7 @@ import type { AodpRegion, CraftPlannerKind, CraftRecipe, RecipesPayload } from '
 
 const LS_PRICES = 'albion-weapon-craft:unitPrices'
 const LS_CRAFT_SETUP = 'albion-weapon-craft:setup'
+const LS_PRICE_CITY = 'albion-weapon-craft:priceCity'
 type CraftSetupState = {
   usageFee: number
   rrr: number
@@ -24,6 +25,7 @@ const DEFAULT_CRAFT_SETUP: CraftSetupState = {
 
 const RECIPE_URL: Record<CraftPlannerKind, string> = {
   weapons: '/data/weapons_recipes.json',
+  offhands: '/data/offhands_recipes.json',
   head: '/data/head_recipes.json',
   chest: '/data/chest_recipes.json',
   boots: '/data/boots_recipes.json',
@@ -111,8 +113,8 @@ type SectionUi = {
   searchAria: string
   listAria: string
   searchIcon: string
-  searchIconSrc?: string
   searchIconItemId?: string
+  searchIconEnchantLevel?: number
   emptyList: string
   pickPrompt: string
   selectionLabel: string
@@ -127,7 +129,8 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
     searchAria: 'Filter weapons',
     listAria: 'Weapon list',
     searchIcon: '⚔',
-    searchIconSrc: '/weapon.png',
+    searchIconItemId: 'T8_MAIN_SWORD',
+    searchIconEnchantLevel: 4,
     emptyList: 'No weapons match that search.',
     pickPrompt: 'Choose a weapon from the list to view resources and silver totals.',
     selectionLabel: 'Selected weapon',
@@ -140,7 +143,8 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
     searchAria: 'Filter head armor',
     listAria: 'Head armor list',
     searchIcon: '⛑',
-    searchIconSrc: '/head.png',
+    searchIconItemId: 'T8_HEAD_PLATE_SET1',
+    searchIconEnchantLevel: 4,
     emptyList: 'No head armor matches that search.',
     pickPrompt: 'Choose a head piece from the list to view resources and silver totals.',
     selectionLabel: 'Selected head piece',
@@ -153,7 +157,8 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
     searchAria: 'Filter chest armor',
     listAria: 'Chest armor list',
     searchIcon: '🛡',
-    searchIconSrc: '/chests.png',
+    searchIconItemId: 'T8_ARMOR_PLATE_SET1',
+    searchIconEnchantLevel: 4,
     emptyList: 'No chest armor matches that search.',
     pickPrompt: 'Choose chest armor from the list to view resources and silver totals.',
     selectionLabel: 'Selected chest piece',
@@ -166,10 +171,25 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
     searchAria: 'Filter boots',
     listAria: 'Boots list',
     searchIcon: '👢',
-    searchIconSrc: '/boots.png',
+    searchIconItemId: 'T8_SHOES_PLATE_SET1',
+    searchIconEnchantLevel: 4,
     emptyList: 'No boots match that search.',
     pickPrompt: 'Choose boots from the list to view resources and silver totals.',
     selectionLabel: 'Selected boots',
+  },
+  offhands: {
+    panelTitle: 'Off-hand',
+    itemSingular: 'item',
+    itemPlural: 'items',
+    searchPlaceholder: 'Search off-hands…',
+    searchAria: 'Filter off-hands',
+    listAria: 'Off-hand list',
+    searchIcon: '🛡',
+    searchIconItemId: 'T8_OFF_SHIELD',
+    searchIconEnchantLevel: 4,
+    emptyList: 'No off-hands match that search.',
+    pickPrompt: 'Choose an off-hand from the list to view resources and silver totals.',
+    selectionLabel: 'Selected off-hand',
   },
   refining_cloth: {
     panelTitle: 'Refining · Cloth',
@@ -539,8 +559,14 @@ const SECTION_UI: Record<CraftPlannerKind, SectionUi> = {
 
 function isArmorCraftKind(
   kind: CraftPlannerKind
-): kind is 'weapons' | 'head' | 'chest' | 'boots' {
-  return kind === 'weapons' || kind === 'head' || kind === 'chest' || kind === 'boots'
+): kind is 'weapons' | 'offhands' | 'head' | 'chest' | 'boots' {
+  return (
+    kind === 'weapons' ||
+    kind === 'offhands' ||
+    kind === 'head' ||
+    kind === 'chest' ||
+    kind === 'boots'
+  )
 }
 
 function isBrewingKind(kind: CraftPlannerKind): kind is Extract<CraftPlannerKind, `brewing_${string}`> {
@@ -552,7 +578,10 @@ function isCookingKind(kind: CraftPlannerKind): kind is Extract<CraftPlannerKind
 }
 
 function itemTierFamilyKey(uniqueName: string): string {
-  return uniqueName.replace(/^T\d+_/, '').replace(/_LEVEL\d+$/, '')
+  return uniqueName
+    .replace(/^T\d+_/, '')
+    .replace(/__ALT\d+$/i, '')
+    .replace(/_LEVEL\d+$/, '')
 }
 
 function cookingTierFamilyKey(uniqueName: string): string {
@@ -566,11 +595,48 @@ function tierFromUniqueName(uniqueName: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** Output enchant (.1–.4) from recipe id; strips `__ALT2` so `T4_CLOTH_LEVEL1__ALT2` → 1. */
 function refiningEnchantFromUniqueName(uniqueName: string): number {
-  const m = uniqueName.match(/_LEVEL([1-4])$/)
+  const base = uniqueName.replace(/__ALT\d+$/i, '')
+  const m = base.match(/_LEVEL([1-4])$/)
   if (!m) return 0
   const n = Number(m[1])
   return Number.isFinite(n) ? n : 0
+}
+
+/** Same refining output family: `T4_CLOTH_LEVEL1__ALT2` → `T4_CLOTH_LEVEL1`. */
+function refiningVariantGroupKey(uniqueName: string): string {
+  return uniqueName.replace(/__ALT\d+$/i, '')
+}
+
+function refiningAltOrdinal(uniqueName: string): number {
+  const m = uniqueName.match(/__ALT(\d+)$/i)
+  return m ? Number(m[1]) : 0
+}
+
+function titleCaseWords(s: string): string {
+  return s
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function refiningVariantChipLabel(recipe: CraftRecipe, names: ItemNameMap | null): string {
+  const tag = recipe.recipeVariantTag?.trim()
+  if (tag) {
+    const basalt = tag.match(/^\.([1-4])\s+basalt$/i)
+    if (basalt) {
+      const tier = tierFromUniqueName(recipe.uniqueName)
+      const base = formatItemDisplayName(recipe.uniqueName, names).replace(/\s+BLOCK$/i, '').trim()
+      const named = titleCaseWords(base)
+      if (tier != null) return `${tier}.${basalt[1]} ${named}`
+      return `.${basalt[1]} ${named}`
+    }
+    return tag.toUpperCase()
+  }
+  return 'Standard'
 }
 
 function loadStoredPrices(): Record<string, number> {
@@ -599,10 +665,111 @@ function formatSilver(n: number): string {
 
 const TIER_VALUES = [1, 2, 3, 4, 5, 6, 7, 8] as const
 const ENCHANT_DISPLAY = [0, 1, 2, 3, 4] as const
+const MAX_RESOURCE_ROWS = 6
+const MAX_CRAFT_QTY = 9999
+const PRICE_CITY_OPTIONS: ReadonlyArray<{ value: PriceCity; label: string }> = [
+  { value: 'lowest', label: 'Lowest Price' },
+  { value: 'Bridgewatch', label: 'Bridgewatch' },
+  { value: 'Martlock', label: 'Martlock' },
+  { value: 'Thetford', label: 'Thetford' },
+  { value: 'Fort Sterling', label: 'Fort Sterling' },
+  { value: 'Lymhurst', label: 'Lymhurst' },
+  { value: 'Caerleon', label: 'Caerleon' },
+  { value: 'Brecilien', label: 'Brecilien' },
+  { value: 'Black Market', label: 'Black Market' },
+]
+
+function loadStoredPriceCity(): PriceCity {
+  const raw = localStorage.getItem(LS_PRICE_CITY)
+  if (!raw) return 'lowest'
+  if (PRICE_CITY_OPTIONS.some((c) => c.value === raw)) {
+    return raw as PriceCity
+  }
+  return 'lowest'
+}
+
+function saveStoredPriceCity(city: PriceCity) {
+  localStorage.setItem(LS_PRICE_CITY, city)
+}
+
+function clampCraftQty(n: number): number {
+  if (!Number.isFinite(n)) return 1
+  return Math.max(1, Math.min(MAX_CRAFT_QTY, Math.floor(n)))
+}
+
+/** Matches `shopSub1` on weapon recipes from the parser (display order like in-game). */
+const WEAPON_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'All', value: '' },
+  { label: 'Bow', value: 'bow' },
+  { label: 'Crossbow', value: 'crossbow' },
+  { label: 'Axe', value: 'axe' },
+  { label: 'Dagger', value: 'dagger' },
+  { label: 'Hammer', value: 'hammer' },
+  { label: 'War Gloves', value: 'knuckles' },
+  { label: 'Mace', value: 'mace' },
+  { label: 'Quarterstaff', value: 'quarterstaff' },
+  { label: 'Spear', value: 'spear' },
+  { label: 'Sword', value: 'sword' },
+  { label: 'Arcane Staff', value: 'arcanestaff' },
+  { label: 'Cursed Staff', value: 'cursestaff' },
+  { label: 'Fire Staff', value: 'firestaff' },
+  { label: 'Frost Staff', value: 'froststaff' },
+  { label: 'Holy Staff', value: 'holystaff' },
+  { label: 'Nature Staff', value: 'naturestaff' },
+  { label: 'Shapeshifter Staff', value: 'shapeshifterstaff' },
+]
+
+/** Matches `shopSub1` on off-hand recipes (shield / book / torch). */
+const OFFHAND_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'All', value: '' },
+  { label: 'Shield', value: 'shieldtype' },
+  { label: 'Book', value: 'booktype' },
+  { label: 'Torch', value: 'torchtype' },
+]
+
+const HEAD_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'All', value: '' },
+  { label: 'Cloth', value: 'cloth_helmet' },
+  { label: 'Leather', value: 'leather_helmet' },
+  { label: 'Plate', value: 'plate_helmet' },
+]
+
+const CHEST_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'All', value: '' },
+  { label: 'Cloth', value: 'cloth_armor' },
+  { label: 'Leather', value: 'leather_armor' },
+  { label: 'Plate', value: 'plate_armor' },
+]
+
+const BOOTS_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'All', value: '' },
+  { label: 'Cloth', value: 'cloth_shoes' },
+  { label: 'Leather', value: 'leather_shoes' },
+  { label: 'Plate', value: 'plate_shoes' },
+]
+
+function shopSub1OptionsForKind(kind: CraftPlannerKind): ReadonlyArray<{ label: string; value: string }> | null {
+  if (kind === 'weapons') return WEAPON_CATEGORY_OPTIONS
+  if (kind === 'offhands') return OFFHAND_CATEGORY_OPTIONS
+  if (kind === 'head') return HEAD_CATEGORY_OPTIONS
+  if (kind === 'chest') return CHEST_CATEGORY_OPTIONS
+  if (kind === 'boots') return BOOTS_CATEGORY_OPTIONS
+  return null
+}
+
+function shopSub1FilterAriaLabel(kind: CraftPlannerKind): string {
+  if (kind === 'weapons') return 'Filter by weapon type'
+  if (kind === 'offhands') return 'Filter by off-hand type'
+  if (kind === 'head') return 'Filter by head armor type'
+  if (kind === 'chest') return 'Filter by chest armor type'
+  if (kind === 'boots') return 'Filter by foot armor type'
+  return 'Filter by category'
+}
 
 function withRefinedEnchant(uniqueName: string, enchant: number): string {
   if (enchant < 1 || enchant > 4) return uniqueName
-  const m = uniqueName.match(
+  const baseId = uniqueName.replace(/__ALT\d+$/i, '')
+  const m = baseId.match(
     /^(T\d+_(?:CLOTH|LEATHER|METALBAR|PLANKS|STONEBLOCK))(?:_LEVEL\d+)?$/
   )
   if (!m) return uniqueName
@@ -646,11 +813,23 @@ function saveStoredSetup(setup: CraftSetupState) {
 }
 
 function tierEnchantPrefix(uniqueName: string): string {
-  const tierMatch = uniqueName.match(/^T(\d+)_/)
+  const id = uniqueName.replace(/__ALT\d+$/i, '')
+  const tierMatch = id.match(/^T(\d+)_/)
   if (!tierMatch) return ''
-  const enchantMatch = uniqueName.match(/_LEVEL([1-4])$/)
+  const enchantMatch = id.match(/_LEVEL([1-4])$/)
   const enchant = enchantMatch ? Number(enchantMatch[1]) : 0
   return `${tierMatch[1]}.${enchant}`
+}
+
+/** List / banner label: base item name plus refining path tag when present. */
+function recipeRowDisplayLabel(recipe: CraftRecipe, names: ItemNameMap | null): string {
+  const alt = recipe.uniqueName.match(/__ALT(\d+)$/i)
+  const stripped = alt ? recipe.uniqueName.replace(/__ALT\d+$/i, '') : recipe.uniqueName
+  const base = formatItemDisplayName(stripped, names)
+  const tag = recipe.recipeVariantTag?.trim()
+  if (tag) return `${base} · ${tag.toUpperCase()}`
+  if (alt) return `${base} · RECIPE ${alt[1]}`
+  return formatItemDisplayName(recipe.uniqueName, names)
 }
 
 function potionTierFamilyKey(uniqueName: string): string {
@@ -685,6 +864,7 @@ function ItemCell({
 
 export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const ui = SECTION_UI[kind]
+  const shopSub1Options = shopSub1OptionsForKind(kind)
   const maxEnchantDisplay = isBrewingKind(kind) || isCookingKind(kind) ? 3 : 4
   const enchantDisplayValues = ENCHANT_DISPLAY.filter((n) => n <= maxEnchantDisplay)
   const isRefiningSection = kind.startsWith('refining_')
@@ -715,8 +895,11 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   >('idle')
   const [priceFetchMsg, setPriceFetchMsg] = useState('')
   const [showPriceFetchFeedback, setShowPriceFetchFeedback] = useState(false)
+  const [showPriceCityPicker, setShowPriceCityPicker] = useState(false)
+  const [priceCity, setPriceCity] = useState<PriceCity>(() => loadStoredPriceCity())
   const [showCraftSetup, setShowCraftSetup] = useState(false)
   const shouldCloseCraftSetupOnClickRef = useRef(false)
+  const priceCityPickerRef = useRef<HTMLDivElement | null>(null)
   const [craftQty, setCraftQty] = useState(1)
   const [usageFee, setUsageFee] = useState(initialSetup.usageFee)
   const [rrr, setRrr] = useState(initialSetup.rrr)
@@ -725,6 +908,10 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   /** List icon enchant (render @N). Used when `tierFilter >= 4`. */
   const [listEnchantView, setListEnchantView] = useState(0)
+  /** Refining: index into alternate paths (Vineheart, basalt, …) for the current list row + enchant. */
+  const [refiningVariantIndex, setRefiningVariantIndex] = useState(0)
+  /** Weapons & off-hands: filter by `shopSub1` (empty = all types). */
+  const [shopSub1Filter, setShopSub1Filter] = useState('')
 
   useEffect(() => {
     if (listEnchantView > maxEnchantDisplay) {
@@ -779,37 +966,99 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     const q = query.trim().toLowerCase()
     return recipes.filter((r) => {
       if (tierFilter != null && r.tier !== tierFilter) return false
-      if (canUseRefiningEnchant && tierFilter != null && tierFilter >= enchantPreviewMinTier) {
-        // In refining, keep list rows aligned with selected enchant level.
-        const rowEnchant = refiningEnchantFromUniqueName(r.uniqueName)
-        if (rowEnchant !== listEnchantView) return false
+      if (shopSub1Options && shopSub1Filter) {
+        if ((r.shopSub1 ?? '').toLowerCase() !== shopSub1Filter) return false
       }
       return itemMatchesSearchQuery(r.uniqueName, q, itemNames)
     })
-  }, [recipes, query, tierFilter, itemNames, kind, canUseRefiningEnchant, enchantPreviewMinTier, listEnchantView])
+  }, [recipes, query, tierFilter, itemNames, shopSub1Options, shopSub1Filter])
+
+  /** Refining list: unenchanted output only (.0); paths + enchant from banner. */
+  const listRows = useMemo(() => {
+    if (!isRefiningSection) return filtered
+    return filtered.filter(
+      (r) =>
+        !/__ALT\d+$/i.test(r.uniqueName) && refiningEnchantFromUniqueName(r.uniqueName) === 0
+    )
+  }, [filtered, isRefiningSection])
+
+  const refiningVariants = useMemo(() => {
+    if (!isRefiningSection || selectedId == null) return []
+    const q = query.trim()
+    const family = itemTierFamilyKey(selectedId)
+    const selectedOutputTier = tierFromUniqueName(selectedId)
+    const out = recipes.filter((r) => {
+      if (itemTierFamilyKey(r.uniqueName) !== family) return false
+      const rt = r.tier ?? tierFromUniqueName(r.uniqueName)
+      if (selectedOutputTier != null && rt !== selectedOutputTier) return false
+      if (tierFilter != null && r.tier !== tierFilter) return false
+      if (canUseRefiningEnchant && selectedOutputTier != null) {
+        if (selectedOutputTier >= enchantPreviewMinTier) {
+          if (refiningEnchantFromUniqueName(r.uniqueName) !== listEnchantView) return false
+        } else if (refiningEnchantFromUniqueName(r.uniqueName) !== 0) {
+          return false
+        }
+      }
+      return itemMatchesSearchQuery(r.uniqueName, q, itemNames)
+    })
+    return out.sort((a, b) => {
+      const da = refiningAltOrdinal(a.uniqueName)
+      const db = refiningAltOrdinal(b.uniqueName)
+      if (da !== db) return da - db
+      return a.uniqueName.localeCompare(b.uniqueName)
+    })
+  }, [
+    isRefiningSection,
+    selectedId,
+    recipes,
+    tierFilter,
+    listEnchantView,
+    canUseRefiningEnchant,
+    enchantPreviewMinTier,
+    query,
+    itemNames,
+  ])
 
   const listIconEnchant =
     supportsPreviewEnchant && tierFilter != null && tierFilter >= 4 && listEnchantView > 0
       ? listEnchantView
       : undefined
-  const listRefiningEnchant =
-    canUseRefiningEnchant && tierFilter != null && tierFilter >= enchantPreviewMinTier && listEnchantView > 0
-      ? listEnchantView
-      : 0
 
-  const selected = useMemo(
-    () => recipes.find((r) => r.uniqueName === selectedId) ?? null,
-    [recipes, selectedId]
-  )
-
-  /** Keep the current selection visible in the left list when tier/search filters would hide it. */
-  const listRows = useMemo(() => {
-    if (!selected) return filtered
-    if (filtered.some((r) => r.uniqueName === selected.uniqueName)) return filtered
-    return [selected, ...filtered]
-  }, [filtered, selected])
+  const selected = useMemo(() => {
+    if (!selectedId) return null
+    if (isRefiningSection) {
+      if (refiningVariants.length === 0) return null
+      const i = Math.min(Math.max(0, refiningVariantIndex), refiningVariants.length - 1)
+      return refiningVariants[i] ?? null
+    }
+    return recipes.find((r) => r.uniqueName === selectedId) ?? null
+  }, [selectedId, isRefiningSection, refiningVariantIndex, refiningVariants, recipes])
 
   const selectedListRowRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    setRefiningVariantIndex(0)
+  }, [listEnchantView, tierFilter, kind])
+
+  useEffect(() => {
+    if (!isRefiningSection) return
+    setRefiningVariantIndex((i) => {
+      if (refiningVariants.length === 0) return 0
+      return Math.min(i, refiningVariants.length - 1)
+    })
+  }, [isRefiningSection, refiningVariants])
+
+  useEffect(() => {
+    if (selectedId == null) return
+    if (listRows.length === 0) {
+      setSelectedId(null)
+      return
+    }
+    if (!listRows.some((r) => r.uniqueName === selectedId)) {
+      setSelectedId(listRows[0].uniqueName)
+      setRefiningVariantIndex(0)
+    }
+  }, [listRows, selectedId])
 
   useLayoutEffect(() => {
     if (!selectedId) return
@@ -831,6 +1080,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         : itemTierFamilyKey(selected.uniqueName)
     return recipes
       .filter((r) => {
+        if (isRefiningSection && /__ALT\d+$/i.test(r.uniqueName)) return false
         const rowFamily = isBrewingKind(kind)
           ? potionTierFamilyKey(r.uniqueName)
           : isCookingKind(kind)
@@ -842,9 +1092,9 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         const ta = a.tier ?? tierFromUniqueName(a.uniqueName) ?? 0
         const tb = b.tier ?? tierFromUniqueName(b.uniqueName) ?? 0
         if (ta !== tb) return ta - tb
-        // Prefer base (no _LEVELx) when multiple IDs exist for same tier.
-        const aBase = /_LEVEL\d+$/.test(a.uniqueName) ? 1 : 0
-        const bBase = /_LEVEL\d+$/.test(b.uniqueName) ? 1 : 0
+        // Non-.1–.4 outputs first, then enchanted outputs (includes `__ALT` vineheart rows).
+        const aBase = refiningEnchantFromUniqueName(a.uniqueName) > 0 ? 1 : 0
+        const bBase = refiningEnchantFromUniqueName(b.uniqueName) > 0 ? 1 : 0
         return aBase - bBase
       })
       .reduce<typeof recipes>((acc, r) => {
@@ -855,14 +1105,16 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         }
         return acc
       }, [])
-  }, [kind, selected, recipes])
+  }, [kind, selected, recipes, isRefiningSection])
   const selectedRefiningFamily = useMemo(
     () => (isRefiningSection && selected ? itemTierFamilyKey(selected.uniqueName) : null),
     [isRefiningSection, selected]
   )
   const selectRecipe = useCallback(
     (recipe: CraftRecipe) => {
-      setSelectedId(recipe.uniqueName)
+      const listKey = isRefiningSection ? refiningVariantGroupKey(recipe.uniqueName) : recipe.uniqueName
+      setSelectedId(listKey)
+      setRefiningVariantIndex(0)
       const nextTier = recipe.tier ?? tierFromUniqueName(recipe.uniqueName)
       if (nextTier != null) {
         setTierFilter(nextTier)
@@ -880,6 +1132,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     },
     [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier]
   )
+
+  const recipeStorageKey = selected?.uniqueName ?? null
 
   const selectedDisplayUniqueName = useMemo(() => {
     if (!selected) return null
@@ -906,9 +1160,9 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   )
 
   const owned = useMemo(() => {
-    if (!selectedId) return {}
-    return ownedByRecipe[selectedId] ?? {}
-  }, [selectedId, ownedByRecipe])
+    if (!recipeStorageKey) return {}
+    return ownedByRecipe[recipeStorageKey] ?? {}
+  }, [recipeStorageKey, ownedByRecipe])
 
   const setUnitPrice = useCallback((id: string, value: number) => {
     setUnitPrices((prev) => {
@@ -919,16 +1173,16 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   }, [])
 
   const setOwnedQty = useCallback((resourceId: string, value: number) => {
-    if (!selectedId) return
+    if (!recipeStorageKey) return
     const qty = Math.max(0, Math.floor(value))
     setOwnedByRecipe((prev) => ({
       ...prev,
-      [selectedId]: {
-        ...(prev[selectedId] ?? {}),
+      [recipeStorageKey]: {
+        ...(prev[recipeStorageKey] ?? {}),
         [resourceId]: qty,
       },
     }))
-  }, [selectedId])
+  }, [recipeStorageKey])
 
   const rows = useMemo(() => {
     if (!selected) return []
@@ -939,19 +1193,66 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
       listEnchantView > 0
         ? listEnchantView
         : 0
+    const hasExplicitEnchantResources = selected.resources.some((r) => (r.enchantmentLevel ?? 0) > 0)
+    const useExplicitEnchantOnly = kind === 'offhands' && hasExplicitEnchantResources
 
-    const applicableResources = selected.resources.filter((r) =>
-      craftEnchant > 0 ? (r.enchantmentLevel == null || r.enchantmentLevel === craftEnchant) : r.enchantmentLevel == null
-    )
+    // Refining: each list row is a fixed recipe (e.g. basalt path includes T4_ROCK_LEVEL2).
+    // Do not strip mats by listEnchantView — that preview is for output icon / row filter only.
+    const applicableResources = isRefiningSection
+      ? selected.resources
+      : selected.resources.filter((r) => {
+          const level = r.enchantmentLevel ?? 0
+          if (craftEnchant > 0) {
+            // Some sections (off-hands) already include explicit .1-.4 mats in recipe data.
+            // In that case, avoid also promoting base mats to enchanted IDs, which duplicates rows.
+            if (useExplicitEnchantOnly) return level === craftEnchant
+            return level === 0 || level === craftEnchant
+          }
+          return level === 0
+        })
 
-    return applicableResources.map((r) => {
-      const resourceId = withRefinedEnchant(r.uniqueName, craftEnchant)
-      const requiredQty = r.count * craftQty
-      const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
-      const unit = unitPrices[resourceId] ?? 0
-      const line = needBuy * unit
-      return { ...r, uniqueName: resourceId, requiredQty, needBuy, unit, line }
-    })
+    const displayResources =
+      applicableResources.length > MAX_RESOURCE_ROWS && craftEnchant > 0
+        ? (() => {
+            const selected = new Set<string>()
+            const picked: typeof applicableResources = []
+            const keyOf = (r: (typeof applicableResources)[number]) =>
+              `${r.uniqueName}::${r.count}::${r.enchantmentLevel ?? 0}`
+
+            // Keep enchant-specific mats visible (e.g. Arcane Extract for .1/.2/.3 potions).
+            for (const r of applicableResources) {
+              if ((r.enchantmentLevel ?? 0) !== craftEnchant) continue
+              const key = keyOf(r)
+              if (selected.has(key)) continue
+              selected.add(key)
+              picked.push(r)
+              if (picked.length >= MAX_RESOURCE_ROWS) return picked
+            }
+
+            // Fill remaining slots with the normal recipe order.
+            for (const r of applicableResources) {
+              const key = keyOf(r)
+              if (selected.has(key)) continue
+              selected.add(key)
+              picked.push(r)
+              if (picked.length >= MAX_RESOURCE_ROWS) break
+            }
+
+            return picked
+          })()
+        : applicableResources.slice(0, MAX_RESOURCE_ROWS)
+
+    return displayResources
+      .map((r) => {
+        const resourceId = isRefiningSection
+          ? withRefinedEnchant(r.uniqueName, r.enchantmentLevel ?? 0)
+          : withRefinedEnchant(r.uniqueName, craftEnchant)
+        const requiredQty = r.count * craftQty
+        const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
+        const unit = unitPrices[resourceId] ?? 0
+        const line = needBuy * unit
+        return { ...r, uniqueName: resourceId, requiredQty, needBuy, unit, line }
+      })
   }, [
     selected,
     selectedTierValue,
@@ -961,6 +1262,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     enchantPreviewMinTier,
     listEnchantView,
     craftQty,
+    isRefiningSection,
   ])
 
   useEffect(() => {
@@ -968,6 +1270,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     setTierFilter(null)
     setListEnchantView(0)
     setSelectedId(null)
+    setRefiningVariantIndex(0)
+    setShopSub1Filter('')
   }, [kind])
 
   const matsTotal = rows.reduce((s, r) => s + r.line, 0)
@@ -975,15 +1279,16 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const stationSilver = baseStationSilver * (usageFee / 1000) * craftQty
   const grandTotal = matsTotal + stationSilver
 
-  const fetchMarketPrices = async () => {
+  const fetchMarketPrices = async (city: PriceCity) => {
     if (!selected) return
     const ids = [...new Set(rows.map((r) => r.uniqueName).filter(Boolean))]
     if (ids.length === 0) return
     setShowPriceFetchFeedback(true)
+    setShowPriceCityPicker(false)
     setPriceFetchStatus('loading')
     setPriceFetchMsg('Fetching prices…')
     try {
-      const prices = await fetchPricesForItems(region, ids)
+      const prices = await fetchPricesForItems(region, ids, city)
       setUnitPrices((prev) => {
         const next = { ...prev }
         for (const [id, silver] of Object.entries(prices)) {
@@ -993,7 +1298,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         return next
       })
       setPriceFetchStatus('ok')
-      setPriceFetchMsg(`Updated ${Object.values(prices).filter((n) => n > 0).length} prices`)
+      const source = city === 'lowest' ? 'lowest price' : city
+      setPriceFetchMsg(`Updated ${Object.values(prices).filter((n) => n > 0).length} prices (${source})`)
     } catch (e) {
       setPriceFetchStatus('err')
       setPriceFetchMsg(e instanceof Error ? e.message : 'Fetch failed')
@@ -1004,7 +1310,34 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     setShowPriceFetchFeedback(false)
     setPriceFetchStatus('idle')
     setPriceFetchMsg('')
-  }, [selectedId])
+  }, [recipeStorageKey])
+
+  useEffect(() => {
+    if (!isBrewingKind(kind)) return
+    if (!recipeStorageKey) return
+    // Switching to a different potion should always start from default card controls.
+    setCraftQty(1)
+    setRegion('asia')
+    setPriceCity('lowest')
+    setShowPriceCityPicker(false)
+  }, [kind, recipeStorageKey])
+
+  useEffect(() => {
+    saveStoredPriceCity(priceCity)
+  }, [priceCity])
+
+  useEffect(() => {
+    if (!showPriceCityPicker) return
+    const onPointerDown = (event: MouseEvent) => {
+      const host = priceCityPickerRef.current
+      if (!host) return
+      if (!host.contains(event.target as Node)) {
+        setShowPriceCityPicker(false)
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    return () => window.removeEventListener('mousedown', onPointerDown)
+  }, [showPriceCityPicker])
 
   useEffect(() => {
     saveStoredSetup({
@@ -1023,6 +1356,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               Run <code className="inline-code">npm run parse-items</code> and ensure{' '}
               <code className="inline-code">public/data/</code> contains{' '}
               <code className="inline-code">weapons_recipes.json</code>,{' '}
+              <code className="inline-code">offhands_recipes.json</code>,{' '}
               <code className="inline-code">head_recipes.json</code>,{' '}
               <code className="inline-code">chest_recipes.json</code>, and{' '}
               <code className="inline-code">boots_recipes.json</code>,{' '}
@@ -1117,6 +1451,14 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
     )
   }
 
+  const hasActiveListFilters =
+    query.trim().length > 0 ||
+    tierFilter != null ||
+    listEnchantView !== 0 ||
+    selectedId != null ||
+    (shopSub1Options != null && shopSub1Filter !== '')
+  const selectedEnchantControls = selected ? renderTierControls('selected') : null
+
   return (
     <div className="planner">
       <div className="workspace">
@@ -1126,21 +1468,31 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
           <div className="search-block">
             <div className="search-wrap">
               <span className="search-icon" aria-hidden>
-                {ui.searchIconSrc ? (
-                  <img
-                    src={ui.searchIconSrc}
-                    alt=""
-                    className="search-icon__img"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : ui.searchIconItemId ? (
+                {ui.searchIconItemId ? (
                   <ItemIcon
                     uniqueName={ui.searchIconItemId}
-                    localFolder={isBrewingKind(kind) ? 'alchemist' : isCookingKind(kind) ? 'cooking' : 'resources'}
-                    size={18}
-                    className="search-icon__item"
+                    enchantmentLevel={ui.searchIconEnchantLevel}
+                    localFolder={
+                      isBrewingKind(kind)
+                        ? 'alchemist'
+                        : isCookingKind(kind)
+                          ? 'cooking'
+                          : kind === 'weapons'
+                            ? 'weapons'
+                            : kind === 'head'
+                              ? 'head'
+                              : kind === 'chest'
+                                ? 'chest'
+                                : kind === 'boots'
+                                  ? 'boots'
+                          : kind === 'offhands'
+                            ? 'offhands'
+                            : 'resources'
+                    }
+                    size={24}
+                    className="search-icon__item search-icon__item--plain"
                     alt=""
+                    showPreview={false}
                     loading="lazy"
                   />
                 ) : (
@@ -1168,14 +1520,45 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               ) : null}
             </div>
             <div className="search-meta">
-              <span className="match-pill">
-                {listRows.length}{' '}
-                {listRows.length === 1 ? ui.itemSingular : ui.itemPlural}
-              </span>
-              <p className="search-hint">
-                Filters stack
-              </p>
+              {shopSub1Options ? (
+                <select
+                  className="weapon-category-select"
+                  value={shopSub1Filter}
+                  onChange={(e) => setShopSub1Filter(e.target.value)}
+                  aria-label={shopSub1FilterAriaLabel(kind)}
+                >
+                  {shopSub1Options.map((opt) => (
+                    <option key={opt.value || 'all'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="match-pill">
+                  {listRows.length}{' '}
+                  {listRows.length === 1 ? ui.itemSingular : ui.itemPlural}
+                </span>
+              )}
+              <div className="search-meta__right">
+                <p className="search-hint">Filters stack</p>
+                <button
+                  type="button"
+                  className="search-clear-filters"
+                  onClick={() => {
+                    setQuery('')
+                    setTierFilter(null)
+                    setListEnchantView(0)
+                    setSelectedId(null)
+                    setRefiningVariantIndex(0)
+                    setShopSub1Filter('')
+                  }}
+                  disabled={!hasActiveListFilters}
+                >
+                  Clear Filters
+                </button>
+              </div>
             </div>
+            <div className="armory-tier-filters">{renderTierControls('list')}</div>
           </div>
 
           <div className="card-scroll card-scroll--weapons" role="region" aria-label={ui.listAria}>
@@ -1185,9 +1568,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               ) : (
                 listRows.map((r) => {
                   const isSel = selectedId === r.uniqueName
-                  const listIconUniqueName = isRefiningSection
-                    ? withRefinedEnchant(r.uniqueName, listRefiningEnchant)
-                    : r.uniqueName
+                  const listIconUniqueName = r.uniqueName
                   return (
                   <button
                     key={r.uniqueName}
@@ -1208,7 +1589,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                       uniqueName={listIconUniqueName}
                       enchantmentLevel={isRefiningSection ? undefined : listIconEnchant}
                       localFolder={outputLocalFolder}
-                      size={44}
+                      size={42}
                       className="item-icon--list"
                       alt=""
                       hoverLabel={summarizeItemHoverLabel(
@@ -1220,7 +1601,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                       fetchPriority={isSel ? 'high' : undefined}
                     />
                     <span className="weapon-item__name">
-                      {formatItemDisplayName(r.uniqueName, itemNames)}
+                      {recipeRowDisplayLabel(r, itemNames)}
                     </span>
                     {r.tier != null ? <span className="weapon-item__tier">T{r.tier}</span> : null}
                   </button>
@@ -1232,88 +1613,118 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         </section>
 
         <div className="workspace-detail">
-          {selected ? (
-            <div className="workspace-detail-stack">
-          <div className={selectedBannerClasses}>
-            <ItemIcon
-              key={`${selectedDisplayUniqueName ?? selected.uniqueName}::${isRefiningSection ? 0 : (listIconEnchant ?? 0)}::${outputLocalFolder}`}
-              uniqueName={selectedDisplayUniqueName ?? selected.uniqueName}
-              enchantmentLevel={isRefiningSection ? undefined : listIconEnchant}
-              localFolder={outputLocalFolder}
-              size={72}
-              className={selectedHeroIconClass}
-              alt=""
-              hoverLabel={summarizeItemHoverLabel(
-                selectedDisplayUniqueName ?? selected.uniqueName,
-                isRefiningSection ? undefined : listIconEnchant,
-                itemNames
-              )}
-              loading="eager"
-              fetchPriority="high"
-            />
+          <div className="workspace-detail-stack">
+          <div className={selected ? selectedBannerClasses : 'selection-banner selection-banner--empty'}>
+            {selected ? (
+              <ItemIcon
+                key={`${selectedDisplayUniqueName ?? selected.uniqueName}::${isRefiningSection ? 0 : (listIconEnchant ?? 0)}::${outputLocalFolder}`}
+                uniqueName={selectedDisplayUniqueName ?? selected.uniqueName}
+                enchantmentLevel={isRefiningSection ? undefined : listIconEnchant}
+                localFolder={outputLocalFolder}
+                size={72}
+                className={selectedHeroIconClass}
+                alt=""
+                hoverLabel={summarizeItemHoverLabel(
+                  selectedDisplayUniqueName ?? selected.uniqueName,
+                  isRefiningSection ? undefined : listIconEnchant,
+                  itemNames
+                )}
+                loading="eager"
+                fetchPriority="high"
+              />
+            ) : (
+              <div className="selection-banner__icon-placeholder" aria-hidden />
+            )}
             <div className="selection-banner__text">
-              <div className="selection-banner__label">{ui.selectionLabel}</div>
+              <div className="selection-banner__label">{selected ? ui.selectionLabel : 'Selection'}</div>
               <div className="selection-banner__name">
-                {isRefiningSection
-                  ? `${tierEnchantPrefix(selectedDisplayUniqueName ?? selected.uniqueName)} ${formatItemDisplayName(
-                      selectedDisplayUniqueName ?? selected.uniqueName,
-                      itemNames
-                    )}`.trim()
-                  : formatItemDisplayName(selected.uniqueName, itemNames)}
+                {selected
+                  ? isRefiningSection
+                  ? `${(
+                      selectedTierValue != null
+                        ? `${selectedTierValue}.${Math.min(maxEnchantDisplay, Math.max(0, listEnchantView))}`
+                        : tierEnchantPrefix(selectedDisplayUniqueName ?? selected.uniqueName)
+                    )} ${recipeRowDisplayLabel(selected, itemNames)}`.trim()
+                  : formatItemDisplayName(selected.uniqueName, itemNames)
+                  : 'No item selected'}
               </div>
-              {selectedTierVariants.length > 1 ? (
-                <div className="selection-tier-variants">
-                  <span className="selection-tier-variants__label">All tiers</span>
+              {selected && (selectedTierVariants.length > 1 || selectedEnchantControls) ? (
+                <div className="selection-banner__variant-row">
+                  {selectedTierVariants.length > 1 ? (
+                    <div className="selection-tier-variants">
+                      <span className="selection-tier-variants__label">All tiers</span>
+                      <div className="chip-row">
+                        {selectedTierVariants.map((r) => (
+                          (() => {
+                            const chipTier = r.tier ?? tierFromUniqueName(r.uniqueName)
+                            const chipIsActive =
+                              chipTier != null && selectedTierValue != null && chipTier === selectedTierValue
+                            return (
+                          <button
+                            key={r.uniqueName}
+                            type="button"
+                            className={`chip chip--tier${chipIsActive ? ' is-active' : ''}`}
+                            aria-pressed={chipIsActive}
+                            onClick={() => {
+                              if (!isRefiningSection || selectedRefiningFamily == null) {
+                                selectRecipe(r)
+                                return
+                              }
+                              const targetTier = r.tier ?? tierFromUniqueName(r.uniqueName)
+                              if (targetTier == null) {
+                                selectRecipe(r)
+                                return
+                              }
+                              const sameFamilyTier = recipes.filter((x) => {
+                                const rowTier = x.tier ?? tierFromUniqueName(x.uniqueName)
+                                return rowTier === targetTier && itemTierFamilyKey(x.uniqueName) === selectedRefiningFamily
+                              })
+                              const sameFamilyTierList = sameFamilyTier.filter((x) => !/__ALT\d+$/i.test(x.uniqueName))
+                              const preferredEnchant =
+                                targetTier >= enchantPreviewMinTier && canUseRefiningEnchant ? listEnchantView : 0
+                              const next =
+                                sameFamilyTierList.find(
+                                  (x) => refiningEnchantFromUniqueName(x.uniqueName) === preferredEnchant
+                                ) ??
+                                sameFamilyTierList.find((x) => refiningEnchantFromUniqueName(x.uniqueName) === 0) ??
+                                sameFamilyTierList[0] ??
+                                sameFamilyTier[0]
+                              if (next) {
+                                selectRecipe(next)
+                              } else {
+                                selectRecipe(r)
+                              }
+                            }}
+                          >
+                            T{r.tier ?? '?'}
+                          </button>
+                            )
+                          })()
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {selectedEnchantControls}
+                </div>
+              ) : null}
+              {selected && isRefiningSection && refiningVariants.length > 1 ? (
+                <div className="selection-tier-variants selection-tier-variants--filters">
+                  <span className="selection-tier-variants__label">Recipe</span>
                   <div className="chip-row">
-                    {selectedTierVariants.map((r) => (
-                      (() => {
-                        const chipTier = r.tier ?? tierFromUniqueName(r.uniqueName)
-                        const chipIsActive =
-                          chipTier != null && selectedTierValue != null && chipTier === selectedTierValue
-                        return (
+                    {refiningVariants.map((v, idx) => (
                       <button
-                        key={r.uniqueName}
+                        key={v.uniqueName}
                         type="button"
-                        className={`chip chip--tier${chipIsActive ? ' is-active' : ''}`}
-                        aria-pressed={chipIsActive}
-                        onClick={() => {
-                          if (!isRefiningSection || selectedRefiningFamily == null) {
-                            selectRecipe(r)
-                            return
-                          }
-                          const targetTier = r.tier ?? tierFromUniqueName(r.uniqueName)
-                          if (targetTier == null) {
-                            selectRecipe(r)
-                            return
-                          }
-                          const sameFamilyTier = recipes.filter((x) => {
-                            const rowTier = x.tier ?? tierFromUniqueName(x.uniqueName)
-                            return rowTier === targetTier && itemTierFamilyKey(x.uniqueName) === selectedRefiningFamily
-                          })
-                          const preferredEnchant =
-                            targetTier >= enchantPreviewMinTier && canUseRefiningEnchant ? listEnchantView : 0
-                          const next =
-                            sameFamilyTier.find(
-                              (x) => refiningEnchantFromUniqueName(x.uniqueName) === preferredEnchant
-                            ) ??
-                            sameFamilyTier.find((x) => refiningEnchantFromUniqueName(x.uniqueName) === 0) ??
-                            sameFamilyTier[0]
-                          if (next) {
-                            selectRecipe(next)
-                          } else {
-                            selectRecipe(r)
-                          }
-                        }}
+                        className={`chip chip--enchant${refiningVariantIndex === idx ? ' is-active' : ''}`}
+                        aria-pressed={refiningVariantIndex === idx}
+                        onClick={() => setRefiningVariantIndex(idx)}
                       >
-                        T{r.tier ?? '?'}
+                        {refiningVariantChipLabel(v, itemNames)}
                       </button>
-                        )
-                      })()
                     ))}
                   </div>
                 </div>
               ) : null}
-              {renderTierControls('selected')}
             </div>
           </div>
 
@@ -1324,17 +1735,36 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                 <div className="row gap market-controls">
                   <label className="field inline market-field market-field--qty">
                     <span className="muted">Craft Qty</span>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      className="input input--market input--qty"
-                      value={craftQty}
-                      onChange={(e) => {
-                        const next = Number(e.target.value || 1)
-                        setCraftQty(Math.max(1, Math.floor(Number.isFinite(next) ? next : 1)))
-                      }}
-                    />
+                    <div className="input-stepper input-stepper--market">
+                      <button
+                        type="button"
+                        className="input-stepper__btn"
+                        aria-label="Decrease craft quantity"
+                        onClick={() => setCraftQty((v) => clampCraftQty(v - 1))}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={MAX_CRAFT_QTY}
+                        step={1}
+                        className="input input--market input--qty input-stepper__input"
+                        value={craftQty}
+                        onChange={(e) => {
+                          const next = Number(e.target.value || 1)
+                          setCraftQty(clampCraftQty(next))
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="input-stepper__btn"
+                        aria-label="Increase craft quantity"
+                        onClick={() => setCraftQty((v) => clampCraftQty(v + 1))}
+                      >
+                        +
+                      </button>
+                    </div>
                   </label>
                   <label className="field inline market-field">
                     <span className="muted">Market</span>
@@ -1348,14 +1778,50 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                       <option value="americas">Americas</option>
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="btn secondary btn--fetch"
-                    disabled={priceFetchStatus === 'loading'}
-                    onClick={() => void fetchMarketPrices()}
-                  >
-                    {priceFetchStatus === 'loading' ? 'Fetching…' : 'Fetch prices'}
-                  </button>
+                  <div ref={priceCityPickerRef} className="price-city-popover-wrap">
+                    <button
+                      type="button"
+                      className="btn secondary btn--fetch"
+                      disabled={!selected || priceFetchStatus === 'loading'}
+                      onClick={() => setShowPriceCityPicker((v) => !v)}
+                    >
+                      {priceFetchStatus === 'loading' ? 'Fetching…' : 'Fetch prices'}
+                    </button>
+                    {showPriceCityPicker ? (
+                      <div className="price-city-popover" role="dialog" aria-label="Choose city for price fetch">
+                        <label className="field">
+                          <span>City</span>
+                          <select
+                            className="input input--market"
+                            value={priceCity}
+                            onChange={(e) => setPriceCity(e.target.value as PriceCity)}
+                          >
+                            {PRICE_CITY_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="price-city-popover__actions">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => setShowPriceCityPicker(false)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => void fetchMarketPrices(priceCity)}
+                          >
+                            Fetch
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="market-feedback" aria-live="polite">
                   {showPriceFetchFeedback && priceFetchMsg ? (
@@ -1391,7 +1857,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {selected && rows.length > 0 ? (
+                    rows.map((r) => (
                     <tr key={`${r.uniqueName}-${r.enchantmentLevel ?? 0}`}>
                       <ItemCell
                         uniqueName={r.uniqueName}
@@ -1399,48 +1866,85 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                       />
                       <td>{r.requiredQty}</td>
                       <td>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input num"
-                          value={owned[r.uniqueName] ?? ''}
-                          placeholder="0"
-                          onChange={(e) =>
-                            setOwnedQty(
-                              r.uniqueName,
-                              e.target.value === '' ? 0 : Number(e.target.value)
-                            )
-                          }
-                        />
+                        <div className="input-stepper">
+                          <button
+                            type="button"
+                            className="input-stepper__btn"
+                            aria-label={`Decrease owned amount for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
+                            onClick={() => setOwnedQty(r.uniqueName, Math.max(0, (owned[r.uniqueName] ?? 0) - 1))}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input num input-stepper__input"
+                            value={owned[r.uniqueName] ?? ''}
+                            placeholder="0"
+                            onChange={(e) =>
+                              setOwnedQty(
+                                r.uniqueName,
+                                e.target.value === '' ? 0 : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="input-stepper__btn"
+                            aria-label={`Increase owned amount for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
+                            onClick={() => setOwnedQty(r.uniqueName, (owned[r.uniqueName] ?? 0) + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
                       </td>
                       <td>{r.needBuy}</td>
                       <td>
-                        <input
-                          type="number"
-                          min={0}
-                          className="input num"
-                          value={r.unit || ''}
-                          placeholder="0"
-                          onChange={(e) =>
-                            setUnitPrice(
-                              r.uniqueName,
-                              e.target.value === '' ? 0 : Number(e.target.value)
-                            )
-                          }
-                        />
+                        <div className="input-stepper">
+                          <button
+                            type="button"
+                            className="input-stepper__btn"
+                            aria-label={`Decrease price for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
+                            onClick={() => setUnitPrice(r.uniqueName, Math.max(0, (r.unit || 0) - 1))}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min={0}
+                            className="input num input-stepper__input"
+                            value={r.unit || ''}
+                            placeholder="0"
+                            onChange={(e) =>
+                              setUnitPrice(
+                                r.uniqueName,
+                                e.target.value === '' ? 0 : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="input-stepper__btn"
+                            aria-label={`Increase price for ${formatItemDisplayName(r.uniqueName, itemNames)}`}
+                            onClick={() => setUnitPrice(r.uniqueName, (r.unit || 0) + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
                       </td>
                       <td className="num">{formatSilver(r.line)}</td>
                     </tr>
-                  ))}
+                    ))
+                  ) : (
+                    <tr className="cost-table__empty">
+                      <td colSpan={6}>Select an item from the list to populate resources and silver totals.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             </div>
             <div className="resources-summary">
-              <div className="resources-summary__row">
-                <span>Craft Quantity:</span>
-                <strong>{craftQty}</strong>
-              </div>
               <div className="resources-summary__row">
                 <span>Station Usage Fee:</span>
                 <strong>{formatSilver(stationSilver)}</strong>
@@ -1460,13 +1964,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
               </button>
             </div>
           </section>
-            </div>
-          ) : (
-            <section className="panel panel--pick">
-              {renderTierControls('list')}
-              <p>{ui.pickPrompt}</p>
-            </section>
-          )}
+          </div>
         </div>
       </div>
 

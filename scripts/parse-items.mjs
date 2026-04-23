@@ -26,8 +26,14 @@ const CATEGORIES = [
     file: 'weapons_recipes.json',
     test(o) {
       if (o['@shopcategory'] !== 'weapons') return false
-      const slot = o['@slottype']
-      return slot === 'mainhand' || slot === 'offhand'
+      return o['@slottype'] === 'mainhand'
+    },
+  },
+  {
+    key: 'offhands',
+    file: 'offhands_recipes.json',
+    test(o) {
+      return o['@shopcategory'] === 'offhands' && o['@slottype'] === 'offhand'
     },
   },
   {
@@ -401,39 +407,46 @@ function getCraftingOptions(craftingrequirements) {
   return Array.isArray(craftingrequirements) ? craftingrequirements : [craftingrequirements]
 }
 
-function pickPrimaryCraftingOption(craftingrequirements) {
-  const options = getCraftingOptions(craftingrequirements)
-  for (const option of options) {
-    if (normalizeCraftResources(option).length > 0) return option
+function craftingOptionsWithResources(craftingrequirements) {
+  return getCraftingOptions(craftingrequirements).filter((opt) => normalizeCraftResources(opt).length > 0)
+}
+
+function isRefiningCategoryKey(key) {
+  return (
+    key === 'refining_cloth' ||
+    key === 'refining_leather' ||
+    key === 'refining_metal_bars' ||
+    key === 'refining_stone_block' ||
+    key === 'refining_planks'
+  )
+}
+
+/** Faction heart tokens → short tag (same names as ao-bin EN `T1_FACTION_*`). */
+const FACTION_HEART_TAG_BY_TOKEN = {
+  T1_FACTION_HIGHLAND_TOKEN_1: 'Rockheart',
+  T1_FACTION_SWAMP_TOKEN_1: 'Vineheart',
+  T1_FACTION_STEPPE_TOKEN_1: 'Beastheart',
+  T1_FACTION_MOUNTAIN_TOKEN_1: 'Mountainheart',
+  T1_FACTION_FOREST_TOKEN_1: 'Treeheart',
+}
+
+function refiningRecipeVariantTag(catKey, cr, altIndex) {
+  if (altIndex < 1 || !isRefiningCategoryKey(catKey)) return undefined
+  const res = normalizeCraftResources(cr)
+  const rockEnch = res.find((r) => /^T\d+_ROCK_LEVEL[1-4]$/.test(r.uniqueName))
+  if (rockEnch) {
+    const m = rockEnch.uniqueName.match(/LEVEL([1-4])$/)
+    if (m) return `.${m[1]} basalt`
   }
-  return null
+  for (const r of res) {
+    const u = r.uniqueName || ''
+    const heart = FACTION_HEART_TAG_BY_TOKEN[u]
+    if (heart) return heart
+  }
+  return `Variant ${altIndex + 1}`
 }
 
-/** Skip event/special/vanity/prototype items (not normal crafted gear). */
-function isExcludedCraftItemId(id) {
-  const u = id.toUpperCase()
-  if (u.startsWith('UNIQUE_')) return true
-  if (u.includes('PROTOTYPE')) return true
-  if (u.includes('VANITY')) return true
-  if (u.includes('IRONGAUNTLETS_HELL')) return true
-  if (u.includes('BLACKHANDS') || u.includes('BLACK_HANDS')) return true
-  return false
-}
-
-function isCraftableBase(o) {
-  if (!o.craftingrequirements) return false
-  const id = o['@uniquename']
-  if (!id || typeof id !== 'string') return false
-  if (isExcludedCraftItemId(id)) return false
-  const primary = pickPrimaryCraftingOption(o.craftingrequirements)
-  if (!primary) return false
-  const resources = normalizeCraftResources(primary)
-  return resources.length > 0
-}
-
-function recipeFromItem(o) {
-  const cr = pickPrimaryCraftingOption(o.craftingrequirements)
-  if (!cr) return null
+function buildRecipeForCraftingOption(o, cr, uniqueName, catKey, altIndex) {
   const baseResources = normalizeCraftResources(cr)
   const baseKeySet = new Set(baseResources.map((r) => `${r.uniqueName}::${r.count}`))
   const enchantmentsRaw = o.enchantments?.enchantment
@@ -452,9 +465,15 @@ function recipeFromItem(o) {
     return enchResources.filter((r) => !baseKeySet.has(`${r.uniqueName}::${r.count}`))
   })
   const includeEnchantExtras =
-    o['@shopcategory'] === 'consumables' || o['@slottype'] === 'food' || o['@slottype'] === 'potion'
-  return {
-    uniqueName: o['@uniquename'],
+    o['@shopcategory'] === 'consumables' ||
+    o['@slottype'] === 'food' ||
+    o['@slottype'] === 'potion' ||
+    o['@shopcategory'] === 'crafting' ||
+    o['@shopcategory'] === 'offhands'
+  const recipeVariantTag = refiningRecipeVariantTag(catKey, cr, altIndex)
+  /** @type {Record<string, unknown>} */
+  const row = {
+    uniqueName,
     tier: o['@tier'] != null ? Number(o['@tier']) : undefined,
     slotType: o['@slottype'],
     shopSub1: o['@shopsubcategory1'],
@@ -462,13 +481,44 @@ function recipeFromItem(o) {
     shopSub3: o['@shopsubcategory3'],
     stationSilver: Number(cr['@silver'] ?? 0),
     craftingFocus:
-      cr['@craftingfocus'] != null && cr['@craftingfocus'] !== ''
-        ? Number(cr['@craftingfocus'])
-        : 0,
-    craftTime:
-      cr['@time'] != null && cr['@time'] !== '' ? Number(cr['@time']) : undefined,
+      cr['@craftingfocus'] != null && cr['@craftingfocus'] !== '' ? Number(cr['@craftingfocus']) : 0,
+    craftTime: cr['@time'] != null && cr['@time'] !== '' ? Number(cr['@time']) : undefined,
     resources: includeEnchantExtras ? [...baseResources, ...enchantExtras] : baseResources,
   }
+  if (recipeVariantTag) row.recipeVariantTag = recipeVariantTag
+  return row
+}
+
+function recipesFromItem(o, catKey) {
+  const options = craftingOptionsWithResources(o.craftingrequirements)
+  if (options.length === 0) return []
+  const id = o['@uniquename']
+  if (isRefiningCategoryKey(catKey) && options.length > 1) {
+    return options.map((cr, i) =>
+      buildRecipeForCraftingOption(o, cr, i === 0 ? id : `${id}__ALT${i + 1}`, catKey, i)
+    )
+  }
+  const r = buildRecipeForCraftingOption(o, options[0], id, catKey, 0)
+  return r ? [r] : []
+}
+
+/** Skip event/special/vanity/prototype items (not normal crafted gear). */
+function isExcludedCraftItemId(id) {
+  const u = id.toUpperCase()
+  if (u.startsWith('UNIQUE_')) return true
+  if (u.includes('PROTOTYPE')) return true
+  if (u.includes('VANITY')) return true
+  if (u.includes('IRONGAUNTLETS_HELL')) return true
+  if (u.includes('BLACKHANDS') || u.includes('BLACK_HANDS')) return true
+  return false
+}
+
+function isCraftableBase(o) {
+  if (!o.craftingrequirements) return false
+  const id = o['@uniquename']
+  if (!id || typeof id !== 'string') return false
+  if (isExcludedCraftItemId(id)) return false
+  return craftingOptionsWithResources(o.craftingrequirements).length > 0
 }
 
 function tuvList(tu) {
@@ -554,8 +604,9 @@ async function main() {
     if (!isCraftableBase(o)) return
     for (const cat of CATEGORIES) {
       if (cat.test(o)) {
-        const recipe = recipeFromItem(o)
-        if (recipe) buckets[cat.key].push(recipe)
+        for (const recipe of recipesFromItem(o, cat.key)) {
+          buckets[cat.key].push(recipe)
+        }
         return
       }
     }

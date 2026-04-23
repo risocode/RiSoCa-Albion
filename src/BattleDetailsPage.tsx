@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ItemIcon } from './ItemIcon'
-import { fetchEventDetails, type EventActor, type EventDetails, type EventItem } from './gameInfo'
+import {
+  fetchEventDetails,
+  getCachedEventDetails,
+  type EventActor,
+  type EventDetails,
+  type EventItem,
+} from './gameInfo'
 import { summarizeItemHoverLabel } from './formatItemName'
 import type { AodpRegion } from './types'
 
@@ -149,7 +155,13 @@ export function BattleDetailsPage({
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
+    const cached = getCachedEventDetails(region, eventId)
+    if (cached) {
+      setData(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     setError(null)
     ;(async () => {
       try {

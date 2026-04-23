@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { BattleDetailsPage } from './BattleDetailsPage'
 import {
   fetchPlayerDeaths,
@@ -189,6 +189,40 @@ export function PlayerLookupPanel() {
   const [error, setError] = useState<string | null>(null)
   const [detailEventId, setDetailEventId] = useState<string | null>(null)
   const [detailRegion, setDetailRegion] = useState<AodpRegion>('asia')
+  const battleModalRef = useRef<HTMLElement | null>(null)
+  const [battleModalScale, setBattleModalScale] = useState(1)
+
+  useEffect(() => {
+    if (!detailEventId) {
+      setBattleModalScale(1)
+      return
+    }
+
+    const fitToViewport = () => {
+      const target = battleModalRef.current
+      if (!target) return
+      const viewportPad = 24
+      const availableWidth = Math.max(220, window.innerWidth - viewportPad * 2)
+      const availableHeight = Math.max(220, window.innerHeight - viewportPad * 2)
+      const naturalWidth = Math.max(1, target.offsetWidth)
+      const naturalHeight = Math.max(1, target.offsetHeight)
+      const nextScale = Math.min(1, availableWidth / naturalWidth, availableHeight / naturalHeight)
+      setBattleModalScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1)
+    }
+
+    const frame = window.requestAnimationFrame(fitToViewport)
+    window.addEventListener('resize', fitToViewport)
+    const resizeObserver = new ResizeObserver(() => fitToViewport())
+    if (battleModalRef.current) {
+      resizeObserver.observe(battleModalRef.current)
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', fitToViewport)
+      resizeObserver.disconnect()
+    }
+  }, [detailEventId])
 
   const selectedMatch = useMemo(
     () => matches.find((m) => m.id === selectedPlayerId) ?? null,
@@ -567,10 +601,12 @@ export function PlayerLookupPanel() {
       {detailEventId ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setDetailEventId(null)}>
           <section
-            className="modal-card modal-card--battle"
+            ref={battleModalRef}
+            className="modal-card modal-card--battle modal-card--autoscale"
             role="dialog"
             aria-modal="true"
             aria-label="Battle details"
+            style={{ '--modal-scale': battleModalScale } as CSSProperties}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-card__head">

@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { itemIconUrl, localItemIconUrl, type LocalIconFolder } from './itemIconUrl'
+import { localItemIconUrl, type LocalIconFolder } from './itemIconUrl'
 
-export type ItemIconProps = {
+type ItemIconProps = {
   uniqueName: string
   enchantmentLevel?: number
   /** Folder inside `public/item-icons` to load from first. */
@@ -15,6 +15,7 @@ export type ItemIconProps = {
   /** `eager` + high fetch priority speeds up the selected weapon / hero icon. */
   loading?: 'eager' | 'lazy'
   fetchPriority?: 'high' | 'low' | 'auto'
+  showPreview?: boolean
 }
 
 export function ItemIcon({
@@ -27,17 +28,15 @@ export function ItemIcon({
   hoverLabel,
   loading = 'lazy',
   fetchPriority,
+  showPreview = true,
 }: ItemIconProps) {
-  const [sourceMode, setSourceMode] = useState<'local' | 'remote' | 'broken'>('local')
+  const [sourceMode, setSourceMode] = useState<'local' | 'broken'>('local')
   const [hovered, setHovered] = useState(false)
   const [previewPos, setPreviewPos] = useState({ top: 0, left: 0 })
   const hostRef = useRef<HTMLSpanElement | null>(null)
   const previewWidth = Math.max(144, size * 2 + 24)
   const previewHeight = Math.max(132, size * 2 + 34)
-  const src =
-    sourceMode === 'local'
-      ? localItemIconUrl(localFolder, uniqueName, enchantmentLevel)
-      : itemIconUrl(uniqueName, { size: Math.round(size * 2), enchantmentLevel })
+  const src = localItemIconUrl(localFolder, uniqueName, enchantmentLevel)
 
   useEffect(() => {
     // Re-evaluate source from local cache whenever icon identity changes.
@@ -89,8 +88,12 @@ export function ItemIcon({
     <span
       ref={hostRef}
       className="item-icon-wrap"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => {
+        if (showPreview) setHovered(true)
+      }}
+      onMouseLeave={() => {
+        if (showPreview) setHovered(false)
+      }}
     >
       <img
         className={`item-icon ${className}`.trim()}
@@ -101,14 +104,9 @@ export function ItemIcon({
         loading={loading}
         decoding="async"
         {...(fetchPriority ? { fetchPriority } : {})}
-        onError={() =>
-          setSourceMode((cur) => {
-            if (cur === 'local') return 'remote'
-            return 'broken'
-          })
-        }
+        onError={() => setSourceMode('broken')}
       />
-      {hovered
+      {showPreview && hovered
         ? createPortal(
             <span
               className="item-icon-preview"

@@ -15,10 +15,9 @@ export type CraftRecipe = {
   craftingFocus: number
   craftTime?: number
   resources: CraftResource[]
+  /** Set by parser for alternate refining paths (e.g. rockheart vs enchanted basalt). */
+  recipeVariantTag?: string
 }
-
-/** @deprecated use CraftRecipe */
-export type WeaponRecipe = CraftRecipe
 
 export type RecipesPayload = {
   category?: string
@@ -27,11 +26,9 @@ export type RecipesPayload = {
   recipes: CraftRecipe[]
 }
 
-/** @deprecated use RecipesPayload */
-export type WeaponsPayload = RecipesPayload
-
 export type CraftPlannerKind =
   | 'weapons'
+  | 'offhands'
   | 'head'
   | 'chest'
   | 'boots'
@@ -67,6 +64,7 @@ export type CraftPlannerKind =
 export type WorkshopSection =
   | 'player_lookup'
   | 'weapons'
+  | 'offhands'
   | 'head'
   | 'chest'
   | 'boots'

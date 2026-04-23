@@ -6,6 +6,17 @@ const GAMEINFO_PREFIX: Record<AodpRegion, string> = {
   asia: '/gameinfo-asia',
 }
 
+const EVENT_DETAILS_TTL_MS = 5 * 60 * 1000
+const EVENT_DETAILS_CACHE_PREFIX = 'event-details-cache::'
+
+type EventDetailsCacheEntry = {
+  ts: number
+  data: EventDetails
+}
+
+const eventDetailsMemoryCache = new Map<string, EventDetailsCacheEntry>()
+const eventDetailsInFlight = new Map<string, Promise<EventDetails>>()
+
 export type PlayerSearchResult = {
   id: string
   name: string
@@ -101,6 +112,57 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
+function eventDetailsKey(region: AodpRegion, eventId: string): string {
+  return `${region}:${eventId.trim()}`
+}
+
+function isFreshCache(entry: EventDetailsCacheEntry | null): entry is EventDetailsCacheEntry {
+  return !!entry && Date.now() - entry.ts < EVENT_DETAILS_TTL_MS
+}
+
+function readEventDetailsSessionCache(key: string): EventDetailsCacheEntry | null {
+  try {
+    const raw = window.sessionStorage.getItem(`${EVENT_DETAILS_CACHE_PREFIX}${key}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as EventDetailsCacheEntry
+    if (!parsed || typeof parsed.ts !== 'number' || typeof parsed.data !== 'object' || parsed.data == null) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeEventDetailsSessionCache(key: string, entry: EventDetailsCacheEntry): void {
+  try {
+    window.sessionStorage.setItem(`${EVENT_DETAILS_CACHE_PREFIX}${key}`, JSON.stringify(entry))
+  } catch {
+    // Ignore storage quota/privacy mode failures.
+  }
+}
+
+function cacheEventDetails(key: string, data: EventDetails): EventDetails {
+  const entry: EventDetailsCacheEntry = { ts: Date.now(), data }
+  eventDetailsMemoryCache.set(key, entry)
+  writeEventDetailsSessionCache(key, entry)
+  return data
+}
+
+export function getCachedEventDetails(region: AodpRegion, eventId: string): EventDetails | null {
+  const key = eventDetailsKey(region, eventId)
+  const mem = eventDetailsMemoryCache.get(key) ?? null
+  if (isFreshCache(mem)) return mem.data
+  if (mem) eventDetailsMemoryCache.delete(key)
+
+  const session = readEventDetailsSessionCache(key)
+  if (isFreshCache(session)) {
+    eventDetailsMemoryCache.set(key, session)
+    return session.data
+  }
+  return null
+}
+
 function looksLikePlayer(entry: Record<string, unknown>): boolean {
   const explicitType = String(entry.Type ?? entry.type ?? '').toLowerCase()
   if (explicitType.length > 0) return explicitType.includes('player')
@@ -166,7 +228,20 @@ export async function fetchPlayerDeaths(region: AodpRegion, playerId: string): P
 }
 
 export async function fetchEventDetails(region: AodpRegion, eventId: string): Promise<EventDetails> {
+  const key = eventDetailsKey(region, eventId)
+  const cached = getCachedEventDetails(region, eventId)
+  if (cached) return cached
+
+  const inFlight = eventDetailsInFlight.get(key)
+  if (inFlight) return inFlight
+
   const base = GAMEINFO_PREFIX[region]
   const path = `${base}/api/gameinfo/events/${encodeURIComponent(eventId)}`
-  return await fetchJson<EventDetails>(path)
+  const request = fetchJson<EventDetails>(path)
+    .then((data) => cacheEventDetails(key, data))
+    .finally(() => {
+      eventDetailsInFlight.delete(key)
+    })
+  eventDetailsInFlight.set(key, request)
+  return await request
 }

@@ -1,6 +1,10 @@
 /** Map of item `uniqueName` → English display string (from ao-bin-dumps localization). */
 export type ItemNameMap = Record<string, string>
 
+function stripRecipeVariantSuffix(uniqueName: string): string {
+  return uniqueName.replace(/__ALT\d+$/i, '')
+}
+
 const TIER_PREFIX_RE =
   /^(Beginner's|Novice's|Journeyman's|Adept's|Expert's|Master's|Grandmaster's|Elder's)\s+/i
 
@@ -11,11 +15,14 @@ export function formatItemDisplayName(
   uniqueName: string,
   names?: ItemNameMap | null
 ): string {
-  const localized = names?.[uniqueName]?.trim()
+  const stripped = stripRecipeVariantSuffix(uniqueName)
+  const localized =
+    names?.[uniqueName]?.trim() ||
+    names?.[stripped]?.trim()
   const base =
     localized && localized.length > 0
       ? localized
-      : uniqueName.replaceAll('_', ' ')
+      : stripped.replaceAll('_', ' ')
   return base.toUpperCase()
 }
 
@@ -27,10 +34,19 @@ export function itemMatchesSearchQuery(
 ): boolean {
   if (!q) return true
   const ql = q.toLowerCase()
+  const stripped = stripRecipeVariantSuffix(uniqueName)
   const lower = uniqueName.toLowerCase()
   const spaced = lower.replaceAll('_', ' ')
-  const disp = (names?.[uniqueName] ?? '').toLowerCase()
-  return lower.includes(ql) || spaced.includes(ql) || disp.includes(ql)
+  const disp = (names?.[uniqueName] ?? names?.[stripped] ?? '').toLowerCase()
+  const strippedLower = stripped.toLowerCase()
+  const strippedSpaced = strippedLower.replaceAll('_', ' ')
+  return (
+    lower.includes(ql) ||
+    spaced.includes(ql) ||
+    disp.includes(ql) ||
+    strippedLower.includes(ql) ||
+    strippedSpaced.includes(ql)
+  )
 }
 
 function titleCaseWords(s: string): string {
@@ -96,7 +112,7 @@ export function summarizeItemHoverLabel(
 ): string {
   const tier = parseTier(uniqueName)
   const ench = enchantmentLevel ?? parseEnchantFromId(uniqueName) ?? 0
-  const prefix = tier != null ? `${tier}.${ench}` : ench > 0 ? `?.${ench}` : ''
-  const base = summarizedBaseName(uniqueName, names)
+  const prefix = ench > 0 ? (tier != null ? `${tier}.${ench}` : `?.${ench}`) : ''
+  const base = summarizedBaseName(stripRecipeVariantSuffix(uniqueName), names)
   return prefix ? `${prefix} ${base}` : base
 }
