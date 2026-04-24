@@ -590,6 +590,14 @@ function outputPerRecipeForKind(kind: CraftPlannerKind): number {
   return 1
 }
 
+/** How many station "craft" operations `craftQty` represents (recipe rows are per operation). */
+function craftOperationCount(kind: CraftPlannerKind, craftQty: number): number {
+  if (!Number.isFinite(craftQty) || craftQty <= 0) return 0
+  const per = outputPerRecipeForKind(kind)
+  if (per <= 1) return Math.floor(craftQty)
+  return Math.floor(craftQty / per)
+}
+
 function defaultCraftQtyForKind(kind: CraftPlannerKind): number {
   return outputPerRecipeForKind(kind)
 }
@@ -1257,11 +1265,12 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
           return level === 0
         })
 
+    const batches = craftOperationCount(kind, craftQty)
     return applicableResources.map((r) => {
       const resourceId = isRefiningSection
         ? withRefinedEnchant(r.uniqueName, r.enchantmentLevel ?? 0)
         : withRefinedEnchant(r.uniqueName, craftEnchant)
-      const requiredQty = r.count * craftQty
+      const requiredQty = r.count * batches
       const needBuy = Math.max(0, requiredQty - (owned[resourceId] ?? 0))
       const unit = unitPrices[resourceId] ?? 0
       const line = needBuy * unit
@@ -1319,7 +1328,8 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
 
   const matsTotal = rows.reduce((s, r) => s + r.line, 0)
   const baseStationSilver = selected?.stationSilver ?? 0
-  const stationSilver = baseStationSilver * (usageFee / 1000) * craftQty
+  const stationOps = craftOperationCount(kind, craftQty)
+  const stationSilver = baseStationSilver * (usageFee / 1000) * stationOps
   const grandTotal = matsTotal + stationSilver
   const craftQtyStep = outputPerRecipeForKind(kind)
   const craftQtyMin = craftQtyStep
