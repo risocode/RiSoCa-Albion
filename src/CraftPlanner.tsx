@@ -690,7 +690,7 @@ function formatSilver(n: number): string {
 
 const TIER_VALUES = [1, 2, 3, 4, 5, 6, 7, 8] as const
 const ENCHANT_DISPLAY = [0, 1, 2, 3, 4] as const
-const MAX_RESOURCE_ROWS = 6
+const MAX_RESOURCE_ROWS = 7
 const MAX_CRAFT_QTY = 9999
 const MAX_RESOURCE_QTY = 99999999
 const MAX_UNIT_PRICE = 9999999999
@@ -736,6 +736,7 @@ function clampNonNegativeFloat(n: number, max: number): number {
   return Math.max(0, Math.min(max, n))
 }
 
+/** Digits only for owned-material text fields (max length matches MAX_RESOURCE_QTY). */
 /** Matches `shopSub1` on weapon recipes from the parser (display order like in-game). */
 const WEAPON_CATEGORY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
   { label: 'All', value: '' },
@@ -1008,13 +1009,13 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return recipes.filter((r) => {
-      if (tierFilter != null && r.tier !== tierFilter) return false
+      if (!isBrewingKind(kind) && tierFilter != null && r.tier !== tierFilter) return false
       if (shopSub1Options && shopSub1Filter) {
         if ((r.shopSub1 ?? '').toLowerCase() !== shopSub1Filter) return false
       }
       return itemMatchesSearchQuery(r.uniqueName, q, itemNames)
     })
-  }, [recipes, query, tierFilter, itemNames, shopSub1Options, shopSub1Filter])
+  }, [recipes, query, tierFilter, itemNames, shopSub1Options, shopSub1Filter, kind])
 
   /** Refining list: unenchanted output only (.0); paths + enchant from banner. */
   const listRows = useMemo(() => {
@@ -1165,7 +1166,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
       setSelectedId(listKey)
       setRefiningVariantIndex(0)
       const nextTier = recipe.tier ?? tierFromUniqueName(recipe.uniqueName)
-      if (nextTier != null) {
+      if (!isBrewingKind(kind) && nextTier != null) {
         setTierFilter(nextTier)
       }
       if (canUseRefiningEnchant) {
@@ -1179,7 +1180,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         setListEnchantView(0)
       }
     },
-    [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier, setRefiningVariantIndex]
+    [isRefiningSection, canUseRefiningEnchant, enchantPreviewMinTier, setRefiningVariantIndex, kind]
   )
 
   const recipeStorageKey = selected?.uniqueName ?? null
@@ -1505,6 +1506,9 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
         </div>
       )
     }
+
+    // Potions keep one continuous list; no top tier strip.
+    if (isBrewingKind(kind)) return null
 
     return (
       <div className="selection-tier-variants selection-tier-variants--filters">
@@ -1956,7 +1960,7 @@ export function CraftPlanner({ kind }: { kind: CraftPlannerKind }) {
                             type="number"
                             min={0}
                             className="input num input-stepper__input"
-                            value={owned[r.uniqueName] ?? ''}
+                            value={(owned[r.uniqueName] ?? 0) > 0 ? owned[r.uniqueName] : ''}
                             placeholder="0"
                             onChange={(e) =>
                               setOwnedQty(
