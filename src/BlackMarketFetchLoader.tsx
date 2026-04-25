@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import {
   getBlackMarketFetchState,
   minimizeBlackMarketFetch,
@@ -6,8 +6,30 @@ import {
   subscribeBlackMarketFetchState,
 } from './blackMarketFetchState'
 
+const MINUTE_MS = 60_000
+const PAUSE_MS = 3000
+
 export function BlackMarketFetchLoader() {
   const state = useSyncExternalStore(subscribeBlackMarketFetchState, getBlackMarketFetchState)
+  const [animPaused, setAnimPaused] = useState(false)
+
+  useEffect(() => {
+    if (!state.isFetching || state.isMinimized) {
+      setAnimPaused(false)
+      return
+    }
+
+    let pauseTimeout: ReturnType<typeof setTimeout> | undefined
+    const intervalId = window.setInterval(() => {
+      setAnimPaused(true)
+      pauseTimeout = window.setTimeout(() => setAnimPaused(false), PAUSE_MS)
+    }, MINUTE_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+      if (pauseTimeout) window.clearTimeout(pauseTimeout)
+    }
+  }, [state.isFetching, state.isMinimized])
 
   if (!state.isFetching) return null
 
@@ -26,7 +48,12 @@ export function BlackMarketFetchLoader() {
   }
 
   return (
-    <div className="black-fetch-overlay" role="dialog" aria-modal="true" aria-label="Fetching Black Market comparison">
+    <div
+      className={`black-fetch-overlay${animPaused ? ' black-fetch-anim-paused' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Fetching Black Market comparison"
+    >
       <section className="black-fetch-modal">
         <button
           type="button"

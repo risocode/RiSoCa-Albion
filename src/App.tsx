@@ -4,6 +4,7 @@ import { BattleDetailsPage } from './BattleDetailsPage'
 import { BlackMarketFlip } from './BlackMarketFlip'
 import { BlackMarketFetchLoader } from './BlackMarketFetchLoader'
 import { CraftPlanner } from './CraftPlanner'
+import { MarketPricesPage } from './MarketPricesPage'
 import { PlayerLookupPanel } from './PlayerLookupPanel'
 import { PlaceholderSection } from './PlaceholderSection'
 import {
@@ -60,6 +61,9 @@ function MainPanel({ section }: { section: WorkshopSection }) {
   }
   if (section === 'black_market_flip') {
     return <BlackMarketFlip />
+  }
+  if (section === 'market_prices') {
+    return <MarketPricesPage />
   }
   if (isCraftSection(section)) {
     return <CraftPlanner kind={section} />

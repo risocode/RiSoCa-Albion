@@ -18,6 +18,7 @@ type NavGroup = {
 
 const TOP_LEVEL_ITEMS: NavItem[] = [
   { id: 'player_lookup', label: 'Player Look-Up', icon: '👤' },
+  { id: 'market_prices', label: 'Market Prices', icon: '📈' },
   { id: 'black_market_flip', label: 'Black Market Flip', icon: '💱' },
 ]
 

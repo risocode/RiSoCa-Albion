@@ -64,6 +64,7 @@ export type CraftPlannerKind =
 export type WorkshopSection =
   | 'player_lookup'
   | 'black_market_flip'
+  | 'market_prices'
   | 'weapons'
   | 'offhands'
   | 'head'

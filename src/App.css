@@ -1922,6 +1922,224 @@
   font-weight: 600;
 }
 
+.market-prices__head {
+  margin-bottom: 0.75rem;
+}
+
+.market-prices__subtitle {
+  margin-top: 0.24rem;
+}
+
+.market-prices__city-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.market-prices__city-chip {
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(23, 30, 48, 0.96) 0%, rgba(12, 18, 31, 0.96) 100%);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.36rem 0.55rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.market-prices__city-chip:hover {
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+
+.market-prices__city-chip[data-city='Bridgewatch'] {
+  color: #f29f38;
+}
+
+.market-prices__city-chip[data-city='Lymhurst'] {
+  color: #4ecb6f;
+}
+
+.market-prices__city-chip[data-city='Martlock'] {
+  color: #4aa0ff;
+}
+
+.market-prices__city-chip[data-city='Thetford'] {
+  color: #a66bff;
+}
+
+.market-prices__city-chip[data-city='Fort Sterling'] {
+  color: #eceff3;
+}
+
+.market-prices__city-chip[data-city='Caerleon'] {
+  color: #ef5a5a;
+}
+
+.market-prices__city-chip[data-city='Brecilien'] {
+  color: #ff78cf;
+}
+
+.market-prices__city-chip.is-active {
+  border-color: var(--gold);
+  color: var(--gold) !important;
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.22);
+}
+
+.market-prices__filters {
+  display: grid;
+  grid-template-columns: 2fr repeat(6, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.market-prices__search {
+  min-width: 0;
+}
+
+.market-prices__region-note {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.market-prices__table th,
+.market-prices__table td {
+  white-space: nowrap;
+  padding: 0.24rem 0.28rem;
+  font-size: 0.8rem;
+}
+
+.market-prices__table th:nth-child(1),
+.market-prices__table td:nth-child(1) {
+  width: 20%;
+}
+
+.market-prices__table th:nth-child(2),
+.market-prices__table td:nth-child(2) {
+  width: 6%;
+  text-align: center;
+}
+
+.market-prices__table th:nth-child(3),
+.market-prices__table td:nth-child(3) {
+  width: 7%;
+  text-align: center;
+}
+
+.market-prices__table th:nth-child(4),
+.market-prices__table td:nth-child(4) {
+  width: 12%;
+}
+
+.market-prices__table th:nth-child(5),
+.market-prices__table td:nth-child(5) {
+  width: 11%;
+}
+
+.market-prices__table th:nth-child(6),
+.market-prices__table td:nth-child(6) {
+  width: 10%;
+}
+
+.market-prices__table th:nth-child(7),
+.market-prices__table td:nth-child(7) {
+  width: 8%;
+  text-align: center;
+}
+
+.market-prices__table th:nth-child(8),
+.market-prices__table td:nth-child(8) {
+  width: 8%;
+  text-align: center;
+}
+
+.market-prices__table th:nth-child(9),
+.market-prices__table td:nth-child(9) {
+  width: 16%;
+  text-align: center;
+}
+
+.market-prices__pager {
+  margin-top: 0.42rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  width: 100%;
+}
+
+.market-prices__pager-btn {
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 999px;
+  background: rgba(20, 29, 46, 0.95);
+  color: var(--gold);
+  font: inherit;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(212, 175, 55, 0.35);
+}
+
+.market-prices__pager-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(35, 48, 72, 0.98);
+}
+
+.market-prices__pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.market-prices__pager-label {
+  min-width: 1.2rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.market-tier-badge,
+.market-enchant-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.14rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(20, 28, 43, 0.92);
+}
+
+.market-tier-badge--t1 { color: #9ca3af; } /* grey */
+.market-tier-badge--t2 { color: #8b5e34; } /* brown */
+.market-tier-badge--t3 { color: #3bbf5a; } /* green */
+.market-tier-badge--t4 { color: #4aa0ff; } /* blue */
+.market-tier-badge--t5 { color: #ef5a5a; } /* red */
+.market-tier-badge--t6 { color: #f29f38; } /* orange */
+.market-tier-badge--t7 { color: #ffd45c; } /* yellow */
+.market-tier-badge--t8 { color: #f3f4f6; } /* white */
+
+.market-enchant-badge--e0 { color: #cfd5df; }
+.market-enchant-badge--e1 { color: #7dd1ff; }
+.market-enchant-badge--e2 { color: #74e37b; }
+.market-enchant-badge--e3 { color: #c99bff; }
+.market-enchant-badge--e4 { color: #ffd36f; }
+
 .black-fetch-overlay {
   position: fixed;
   inset: 0;
@@ -1983,7 +2201,11 @@
   stroke-dasharray: 40 400;
   stroke-dashoffset: 438;
   filter: drop-shadow(0 0 6px currentColor);
-  animation: blackFetchFlow 3s cubic-bezier(0.5, 0, 0.9, 1) infinite;
+  animation: blackFetchFlow 1.3s cubic-bezier(0.5, 0, 0.9, 1) infinite;
+}
+
+.black-fetch-anim-paused .black-fetch-trace-flow {
+  animation-play-state: paused;
 }
 
 .black-fetch-yellow {
@@ -3379,6 +3601,14 @@
 }
 
 @media (max-width: 640px) {
+  .market-prices__city-chips {
+    justify-content: flex-start;
+  }
+
+  .market-prices__filters {
+    grid-template-columns: 1fr;
+  }
+
   .black-flip__search {
     grid-column: span 1;
   }
