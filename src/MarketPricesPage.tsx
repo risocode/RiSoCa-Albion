@@ -174,8 +174,6 @@ export function MarketPricesPage() {
   const [enchant, setEnchant] = useState<number | null>(null)
   const [region, setRegion] = useState<MarketRegion>('all')
   const [sort, setSort] = useState<MarketSort>('updated_desc')
-  const [rowsPerPage, setRowsPerPage] = useState(14)
-  const [page, setPage] = useState(1)
 
   const categoryOptions = useMemo(() => {
     const set = new Set(rows.map((r) => deriveCategory(r.itemUniqueName)))
@@ -205,37 +203,6 @@ export function MarketPricesPage() {
       return true
     })
   }, [rows, city, category, typeFilter, tier, enchant, search])
-
-  useEffect(() => {
-    const computeRowsPerPage = () => {
-      const host = tableRegionRef.current
-      if (!host) return
-      const rect = host.getBoundingClientRect()
-      const viewportBottom = window.innerHeight
-      const available = Math.max(220, viewportBottom - rect.top - 72) // reserve room for pager and spacing
-      const approxRowPx = 33
-      const next = Math.max(6, Math.min(25, Math.floor(available / approxRowPx)))
-      setRowsPerPage(next)
-    }
-    computeRowsPerPage()
-    window.addEventListener('resize', computeRowsPerPage)
-    window.addEventListener('scroll', computeRowsPerPage, true)
-    return () => {
-      window.removeEventListener('resize', computeRowsPerPage)
-      window.removeEventListener('scroll', computeRowsPerPage, true)
-    }
-  }, [])
-
-  useEffect(() => {
-    setPage(1)
-  }, [search, city, category, typeFilter, tier, enchant, region, sort, rowsPerPage])
-
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / rowsPerPage))
-  const safePage = Math.min(page, totalPages)
-  const pagedRows = useMemo(() => {
-    const start = (safePage - 1) * rowsPerPage
-    return visibleRows.slice(start, start + rowsPerPage)
-  }, [visibleRows, safePage, rowsPerPage])
 
   const fetchRows = async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true
@@ -398,8 +365,8 @@ export function MarketPricesPage() {
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.length > 0 ? (
-                  pagedRows.map((row) => (
+                {visibleRows.length > 0 ? (
+                  visibleRows.map((row) => (
                     <tr key={row.id}>
                       <td>
                         <div className="resource-cell">
@@ -442,29 +409,6 @@ export function MarketPricesPage() {
             </table>
           </div>
         </div>
-        {totalPages > 1 ? (
-          <div className="market-prices__pager" aria-label="Market prices pagination">
-            <button
-              type="button"
-              className="market-prices__pager-btn"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={safePage <= 1}
-              aria-label="Previous page"
-            >
-              &#x2039;
-            </button>
-            <span className="market-prices__pager-label">{safePage}</span>
-            <button
-              type="button"
-              className="market-prices__pager-btn"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage >= totalPages}
-              aria-label="Next page"
-            >
-              &#x203A;
-            </button>
-          </div>
-        ) : null}
       </section>
     </div>
   )

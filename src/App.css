@@ -2007,6 +2007,12 @@
   color: var(--muted);
 }
 
+.market-prices .card-scroll--table {
+  /* Keep vertical scrolling inside the market table card */
+  overflow-y: auto;
+  max-height: min(68vh, 760px);
+}
+
 .market-prices__table th,
 .market-prices__table td {
   white-space: nowrap;
@@ -2062,52 +2068,6 @@
 .market-prices__table td:nth-child(9) {
   width: 16%;
   text-align: center;
-}
-
-.market-prices__pager {
-  margin-top: 0.42rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.38rem;
-  width: 100%;
-}
-
-.market-prices__pager-btn {
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  border-radius: 999px;
-  background: rgba(20, 29, 46, 0.95);
-  color: var(--gold);
-  font: inherit;
-  width: 1.6rem;
-  height: 1.6rem;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  line-height: 1;
-  font-size: 1.15rem;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(212, 175, 55, 0.35);
-}
-
-.market-prices__pager-btn:hover:not(:disabled) {
-  border-color: var(--gold);
-  background: rgba(35, 48, 72, 0.98);
-}
-
-.market-prices__pager-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.market-prices__pager-label {
-  min-width: 1.2rem;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-soft);
 }
 
 .market-tier-badge,
